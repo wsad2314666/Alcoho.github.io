@@ -1,30 +1,30 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>�s��@�״��q</title>
+    <title>酒精濃度測量</title>
 </head>
 <body>
-    <h1>�s��@�״��q</h1>
+    <h1>酒精濃度測量</h1>
     <form id="alcoholForm">
-        <label for="percent">�A�ܴX%:</label>
+        <label for="percent">你喝幾%:</label>
         <input type="number" step="0.01" id="percent" required><br>
 
-        <label for="CC">�A�ܴXCC�F:</label>
+        <label for="CC">你喝幾CC了:</label>
         <input type="number" id="CC" required><br>
 
-        <label for="Wt">�魫:</label>
+        <label for="Wt">體重:</label>
         <input type="number" id="Wt" required><br>
 
-        <label for="DP">�Z���A�ܰs���L�h�[�p�ɤF:</label>
+        <label for="DP">距離你喝酒完過多久小時了:</label>
         <input type="number" id="DP" required><br>
 
-        <label for="gender">�п�ܩʧO:</label>
+        <label for="gender">請選擇性別:</label>
         <select id="gender">
-            <option value="male">�k��</option>
-            <option value="female">�k��</option>
+            <option value="male">男生</option>
+            <option value="female">女生</option>
         </select><br>
 
-        <button type="button" onclick="calculateEBAC()">�p��</button>
+        <button type="button" onclick="calculateEBAC()">計算</button>
     </form>
 
     <div id="result"></div>
@@ -48,26 +48,26 @@
             }
 
             var EBAC = 0.806 * SD * 1.2 / BW / Wt - (MR * DP);
-            document.getElementById("result").innerHTML = "�s��@����: " + EBAC.toFixed(4);
+            document.getElementById("result").innerHTML = "酒精耐受度: " + EBAC.toFixed(4);
             Todecetvie(EBAC);
         }
 
         function Todecetvie(EBAC) {
             var resultDiv = document.getElementById("result");
             if (EBAC < 0.029) {
-                resultDiv.innerHTML += "<p>�s�������w�i���X�s�����</p>";
+                resultDiv.innerHTML += "<p>酒測儀器已可測出酒精反應</p>";
             } else if (EBAC < 0.059) {
-                resultDiv.innerHTML += "<p>���s�̥i��|�P�쿳�ĩM�w�r�P�A�ܱo��[�h�ܥB�M�`�O�|�}�l�U���A�]�O���{�@�h���з�</p>";
+                resultDiv.innerHTML += "<p>飲酒者可能會感到興奮和歡愉感，變得更加多話且專注力會開始下降，也是面臨罰則的標準</p>";
             } else if (EBAC < 0.099) {
-                resultDiv.innerHTML += "<p>�ܱo��w�A�w�r�P����A���M�`�O�|�ܱo��C�A�޿�M��P�D���P����O�]�}�l�U��</p>";
+                resultDiv.innerHTML += "<p>變得遲鈍，歡愉感持續，但專注力會變得更低，邏輯和對周遭的感知能力也開始下降</p>";
             } else if (EBAC < 0.199) {
-                resultDiv.innerHTML += "<p>����i��|���n�x�B�æR�Τf�����M���g���C���~�A�����O�B�٦ױ���O�]�|�����㪺�U��</p>";
+                resultDiv.innerHTML += "<p>個體可能會有吵鬧、嘔吐或口齒不清等症狀。此外，反應力、肌肉控制力也會有明顯的下降</p>";
             } else if (EBAC < 0.299) {
-                resultDiv.innerHTML += "<p>����w�g�ॢ�������i�沾�ʪ���O</p>";
+                resultDiv.innerHTML += "<p>個體已經喪失控制肢體進行移動的能力</p>";
             } else if (EBAC < 0.399) {
-                resultDiv.innerHTML += "<p>���s�̥i��|���T�A�X�{���g�����p�A�߸��M�I�l�t�v�]���C�A�C�P���v</p>";
+                resultDiv.innerHTML += "<p>飲酒者可能會失禁，出現昏迷的情況，心跳和呼吸速率也降低，低致死率</p>";
             } else {
-                resultDiv.innerHTML += "<p>�����F</p>";
+                resultDiv.innerHTML += "<p>死掉了</p>";
             }
         }
     </script>
