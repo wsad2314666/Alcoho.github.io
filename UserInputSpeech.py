@@ -118,22 +118,18 @@ def main():
     # 計算使用者輸入語音與標準語音的相似度
     sim_scores = similarity(input_mfcc, reference_mfcc)
 
-    print("使用者輸入語音與標準語音的相似度比對結果：", sim_scores)
-
     # 計算語音評分
     # 這裡需要根據相似度距離計算評分
     distance = 1 - sim_scores
     a = 0.1
     b = 2
     score = voice_score(distance, a, b)
-    print("語音評分：", score)
 
-    # 將相似度比對結果繪製成圖像
-    plt.imshow(sim_scores, cmap='viridis', interpolation='nearest')
-    plt.colorbar(label='Similarity')
-    plt.xlabel('Standard Speech')
-    plt.ylabel('User Input')
-    plt.title('Similarity Matrix')
+    # 將相似度分數繪製成波形圖
+    plt.plot(score, color='black')
+    plt.xlabel('Time')
+    plt.ylabel('Score')
+    plt.title('Voice Score')
     plt.show()
 
 if __name__ == "__main__":
