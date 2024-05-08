@@ -46,7 +46,7 @@ def record_audio(filename):
     print("Start recording...")
 
     frames = []
-    seconds = 3  # 錄製3秒，可以根據需求調整
+    seconds = 4  # 錄製3秒，可以根據需求調整
 
     for i in range(0, int(RATE / CHUNK * seconds)):
         data = stream.read(CHUNK)
