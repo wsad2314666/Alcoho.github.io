@@ -1,4 +1,5 @@
 import os
+from sys import argv
 import numpy as np
 import scipy.io.wavfile as wav
 from scipy.fftpack import fft
@@ -7,20 +8,24 @@ from sklearn.metrics.pairwise import cosine_similarity
 import pyaudio
 import wave
 import matplotlib.pyplot as plt
+from scipy.optimize import fmin
 
 def load_wav(file):
     """讀取.wav檔案並回傳取樣率和音訊資料"""
     rate, data = wav.read(file)
+    print("Shape of data:", data.shape)
+    print("Data type of data:", data.dtype)
     return rate, data
+
 
 def calculate_mfcc(data, rate):
     """計算MFCC特徵"""
-    return mfcc(data, rate)
+    return mfcc(data, rate, nfft=2048)
 
 def load_reference_data(wav_filename):
     """載入參考語音數據"""
     # 讀取參考語音檔案
-    rate_ref, data_ref = load_wav(wav_filename)
+    rate_ref, data_ref = wav.read(wav_filename)
 
     # 計算參考語音的MFCC特徵
     reference_mfcc = calculate_mfcc(data_ref, rate_ref)
@@ -36,9 +41,14 @@ def normalize_features(features):
         return np.mean(mag, axis=1)
 
     # 基頻軌跡
-    def average_magnitude_difference(frames):
-        """計算基頻軌跡"""
-        # 在這裡實現Average Magnitude Difference Function
+def average_magnitude_difference(frames):
+    """計算基頻軌跡"""
+    # 計算相鄰帧之間的幅度變化
+    magnitude_diff = np.abs(frames[:, 1:] - frames[:, :-1])
+    # 取每個特徵維度的平均值
+    avg_magnitude_diff = np.mean(magnitude_diff, axis=1)
+    return avg_magnitude_diff
+
 
     # CMS (Cepstral Mean Subtraction)
     def cepstral_mean_subtraction(features):
@@ -66,12 +76,7 @@ def similarity(input_features, reference_features):
         input_features = input_features.reshape(input_features.shape[0], -1)
     return cosine_similarity(input_features, reference_features)
 
-def voice_score(dist, a, b):
-    """計算語音評分"""
-    score = 100 / (1 + a * dist ** b)
-    return score
-
-def record_audio(filename):
+def record_audio(filename, duration=3):
     """錄製與標準語音相同長度的使用者輸入的語音"""
     CHUNK = 4096  # 進一步增加帧大小
     FORMAT = pyaudio.paInt16
@@ -83,7 +88,7 @@ def record_audio(filename):
     print("Start recording...")
 
     frames = []
-    seconds = 4  # 錄製3秒，可以根據需求調整
+    seconds = duration
 
     for i in range(0, int(RATE / CHUNK * seconds)):
         data = stream.read(CHUNK)
@@ -99,6 +104,14 @@ def record_audio(filename):
     wf.setframerate(RATE)
     wf.writeframes(b''.join(frames))
     wf.close()
+
+def voice_score(params, a1, a2, a3, b1, b2, b3, w1, w2, w3):
+    """計算語音評分"""
+    distances = params[0]
+    score = w1 * (100 / (1 + a1 * distances[0] ** b1)) + \
+            w2 * (100 / (1 + a2 * distances[1] ** b2)) + \
+            w3 * (100 / (1 + a3 * distances[2] ** b3))
+    return score
 
 def main():
     # 標準語音檔案路徑
@@ -118,19 +131,36 @@ def main():
     # 計算使用者輸入語音與標準語音的相似度
     sim_scores = similarity(input_mfcc, reference_mfcc)
 
-    # 計算語音評分
-    # 這裡需要根據相似度距離計算評分
-    distance = 1 - sim_scores
-    a = 0.1
-    b = 2
-    score = voice_score(distance, a, b)
+    # 將相似度矩陣轉換為距離列表
+    distances = [1 - sim for sim in sim_scores.flatten()]
 
-    # 將相似度分數繪製成波形圖
-    plt.plot(score, color='black')
-    plt.xlabel('Time')
-    plt.ylabel('Score')
-    plt.title('Voice Score')
+    # 正規化特徵
+    norm_input_mfcc = normalize_features(input_mfcc)
+    norm_reference_mfcc = normalize_features(reference_mfcc)
+
+    # 設置距離轉換參數
+    a1 = 1  # 從實驗數據中獲取的值
+    b1 = 1  # 從實驗數據中獲取的值
+    a2 = 1  # 從實驗數據中獲取的值
+    b2 = 1  # 從實驗數據中獲取的值
+    a3 = 1  # 從實驗數據中獲取的值
+    b3 = 1  # 從實驗數據中獲取的值
+    w1 = 1  # 調整權重以達到最佳效果
+    w2 = 1  # 調整權重以達到最佳效果
+    w3 = 1  # 調整權重以達到最佳效果
+
+    # 計算語音評分
+    params = (distances, a1, a2, a3, b1, b2, b3, w1, w2, w3)
+    score = voice_score(params, a1, a2, a3, b1, b2, b3, w1, w2, w3)
+
+    # 將相似度比對結果繪製成圖像
+    plt.imshow(sim_scores, cmap='viridis', interpolation='nearest')
+    plt.colorbar(label='Similarity')
+    plt.xlabel('Standard Speech')
+    plt.ylabel('User Input')
+    plt.title('Similarity Matrix')
     plt.show()
+
 
 if __name__ == "__main__":
     main()
