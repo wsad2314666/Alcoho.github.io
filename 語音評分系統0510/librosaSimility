@@ -1,8 +1,9 @@
 import librosa
 import matplotlib.pyplot as plt
-
+import os
 #讀音訊檔案
-audio_path=r'A.wav'
+audio_path="A.wav"
+#wsad2314666/Alcoho.github.io/語音評分系統0510/A.wav
 y,sr=librosa.load(audio_path)
 
 #畫出波形圖
