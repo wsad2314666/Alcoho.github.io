@@ -14,7 +14,6 @@ def get_labels(path=DATA_PATH):            # O
     label_indices = np.arange(0, len(labels))# 用labels的len轉成陣列
     print('label_indices:', label_indices)
     return labels, label_indices, to_categorical(label_indices)
-to_categorical(label_indices)
 
 # Handy function to convert wav2mfcc
 def wav2mfcc(file_path, max_pad_len=11):            # O
