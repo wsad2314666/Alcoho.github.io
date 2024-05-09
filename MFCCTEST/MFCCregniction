@@ -1,82 +1,55 @@
-import librosa
-import os
-from sklearn.model_selection import train_test_split
-from tensorflow.keras.utils import to_categorical
-import numpy as np
+# 導入函式庫
+from AprendeModel import *
+import keras
+from keras.models import Sequential
+from keras.layers import Dense, Dropout, Flatten, Conv2D, MaxPooling2D
+from keras.utils import to_categorical
 
-DATA_PATH = "wsad2314666/Alcoho.github.io/MFCCTEST/MusicTest"
+# 載入 data 資料夾的訓練資料，並自動分為『訓練組』及『測試組』
+X_train, X_test, y_train, y_test = get_train_test()
+X_train = X_train.reshape(X_train.shape[0], 20, 11, 1)
+X_test = X_test.reshape(X_test.shape[0], 20, 11, 1)
 
+# 類別變數轉為one-hot encoding
+y_train_hot = to_categorical(y_train)
+y_test_hot = to_categorical(y_test)
+print("X_train.shape=", X_train.shape)
 
-# Input: Folder Path
-# Output: Tuple (Label, Indices of the labels, one-hot encoded labels)
-def get_labels(path=DATA_PATH):            # O
-    labels = os.listdir(path)# 把資料夾檔名用list存著
-    label_indices = np.arange(0, len(labels))# 用labels的len轉成陣列
-    print('label_indices:', label_indices)
-    return labels, label_indices, to_categorical(label_indices)
+# 建立簡單的線性執行的模型
+model = Sequential()
+# 建立卷積層，filter=32,即 output size, Kernal Size: 2x2, activation function 採用 relu
+model.add(Conv2D(32, kernel_size=(2, 2), activation='relu', input_shape=(20, 11, 1)))
+# 建立池化層，池化大小=2x2，取最大值
+model.add(MaxPooling2D(pool_size=(2, 2)))
+# Dropout層隨機斷開輸入神經元，用於防止過度擬合，斷開比例:0.25
+model.add(Dropout(0.25))
+# Flatten層把多維的輸入一維化，常用在從卷積層到全連接層的過渡。
+model.add(Flatten())
+# 全連接層: 128個output
+model.add(Dense(128, activation='relu'))
+model.add(Dropout(0.25))
+# Add output layer
+model.add(Dense(3, activation='softmax'))
+# 編譯: 選擇損失函數、優化方法及成效衡量方式
+model.compile(loss=keras.losses.categorical_crossentropy,
+              optimizer=keras.optimizers.Adadelta(),
+              metrics=['accuracy'])
 
-# Handy function to convert wav2mfcc
-def wav2mfcc(file_path, max_pad_len=11):            # O
-    wave, sr = librosa.load(file_path, mono=True, sr=None)
-    wave = wave[::3]
-
-    # cut audio file
-    i = 0
-    # 訓練資料的長度 (Drew:重點!)
-    wav_length = 5334
-    # 聲音檔過長，擷取片段
-    if len(wave) > wav_length:
-        # 尋找最大聲的點，取前後各半
-        i = np.argmax(wave)
-        if i > (wav_length):
-            wave = wave[i-int(wav_length/2):i+int(wav_length/2)]
-        else:
-            wave = wave[0:wav_length]
-
-    # mfcc = librosa.feature.mfcc(wave, sr=16000)
-    mfcc = librosa.feature.mfcc(wave, sr=55000)
-    print(mfcc)
-    pad_width = max_pad_len - mfcc.shape[1]
-    if pad_width < 0:
-        pad_width = 0
-        mfcc = mfcc[:, :11]
-    mfcc = np.pad(mfcc, pad_width=((0, 0), (0, pad_width)),
-                  mode='constant')    # Drew: 邊緣填充, 避免邊緣訊息遺失
-    return mfcc
+# 進行訓練, 訓練過程會存在 train_history 變數中
+model.fit(X_train, y_train_hot, batch_size=100, epochs=200, verbose=1, validation_data=(X_test, y_test_hot))
 
 
-def save_data_to_array(path=DATA_PATH, max_pad_len=11):            # O
-    labels, _, _ = get_labels(path)
+X_train = X_train.reshape(X_train.shape[0], 20, 11, 1)
+X_test = X_test.reshape(X_test.shape[0], 20, 11, 1)
+score = model.evaluate(X_test, y_test_hot, verbose=1)
 
-    for label in labels:
-        # Init mfcc vectors
-        mfcc_vectors = []
-
-        wavfiles = [path + label + '/' +
-                    wavfile for wavfile in os.listdir(path + '/' + label)]
-        for wavfile in wavfiles:
-            mfcc = wav2mfcc(wavfile, max_pad_len=max_pad_len)
-            mfcc_vectors.append(mfcc)
-        np.save(label + '.npy', mfcc_vectors)
+# 模型存檔
+from keras.models import load_model
+model.save('ASR.h5')  # creates a HDF5 file 'model.h5'
 
 
-def get_train_test(split_ratio=0.6, random_state=42):       # O
-    # Get available labels
-    labels, _ , _ = get_labels(DATA_PATH)
-
-    # Getting first arrays
-    X = np.load(labels[0] + '.npy')
-    y = np.zeros(X.shape[0])
-
-    # Append all of the dataset into one single array, same goes for y
-    for i, label in enumerate(labels[1:]):
-        x = np.load(label + '.npy')
-        X = np.vstack((X, x))
-        # shape,value
-        y = np.append(y, np.full(x.shape[0], fill_value=(i + 1)))
-
-    print('this is y:', y)
-
-    assert X.shape[0] == len(y)
-
-    return train_test_split(X, y, test_size=(1 - split_ratio), random_state=random_state, shuffle=True)
+# 預測(prediction)
+mfcc = wav2mfcc('./data/happy/012c8314_nohash_0.wav')
+mfcc_reshaped = mfcc.reshape(1, 20, 11, 1)
+print("labels=", get_labels())
+print("predict=", np.argmax(model.predict(mfcc_reshaped)))
