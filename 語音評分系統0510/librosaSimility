@@ -1,0 +1,14 @@
+import librosa
+import matplolib.pyplot as plt
+
+#讀音訊檔案
+audio_path='A.wav'
+y,sr=librosa.load(audio_path)
+
+#畫出波形圖
+plt.figure(figsize=(10,4))
+librosa.display.waveplot(y,sr=sr)
+plt.title('Waveform')
+plt.xlabel('Time')
+plt.ylabel('Amplitude')
+plt.show()
