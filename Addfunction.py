@@ -9,9 +9,20 @@ import wave
 import matplotlib.pyplot as plt
 
 def load_wav(file):
-    """讀取.wav檔案並回傳取樣率和音訊資料"""
-    rate, data = wav.read(file)
-    return rate, data
+    '''
+    读取一个wav文件，返回声音信号的时域谱矩阵、播放时间和通道数
+    '''
+    wav_file = wave.open(file, "rb")  # 打开一个wav格式的声音文件流
+    num_frames = wav_file.getnframes()  # 获取帧数
+    num_channels = wav_file.getnchannels()  # 获取声道数
+    framerate = wav_file.getframerate()  # 获取帧速率
+    num_sample_width = wav_file.getsampwidth()  # 获取实例的比特宽度，即每一帧的字节数
+    
+    str_data = wav_file.readframes(num_frames)  # 读取全部的帧
+    wav_file.close()  # 关闭流
+    wave_data = np.frombuffer(str_data, dtype=np.int16)  # 将声音文件数据转换为数组矩阵形式
+    wave_data = wave_data.reshape(-1, num_channels)  # 按照声道数将数组整形，单声道时候是一列数组，双声道时候是两列的矩阵
+    return wave_data, framerate, num_channels
 
 def record_audio(filename):
     """錄製與標準語音相同長度的使用者輸入的語音"""
@@ -41,6 +52,7 @@ def record_audio(filename):
     wf.setframerate(RATE)
     wf.writeframes(b''.join(frames))
     wf.close()
+    
 def endpoint_detection(signal, frame_size, overlap):
     """端点检测"""
     energy = np.sum(signal ** 2, axis=1)  # 计算每个音框的能量
@@ -52,12 +64,19 @@ def endpoint_detection(signal, frame_size, overlap):
 
 def calculate_volume_curve(signal, frame_size, overlap):
     """计算音量强度曲线"""
+    print("Signal shape:", signal.shape)  # 添加调试语句
     start, end = endpoint_detection(signal, frame_size, overlap)
     frames = []
     for i in range(start, end - frame_size, int(frame_size * (1 - overlap))):
         frames.append(signal[i:i + frame_size])
     frames = np.array(frames)
-    mag_curve = np.mean(np.abs(frames), axis=1)  # 计算每个音框的幅度
+    
+    # 处理当frames的长度为1时的情况
+    if len(frames.shape) == 1:
+        mag_curve = np.abs(frames)
+    else:
+        mag_curve = np.mean(np.abs(frames), axis=1)  # 计算每个音框的幅度
+    
     return mag_curve
 
 def plot_volume_curve(signal, rate, frame_size, overlap):
@@ -69,18 +88,23 @@ def plot_volume_curve(signal, rate, frame_size, overlap):
     plt.ylabel('Average Magnitude')
     plt.title('Volume Intensity Curve')
     plt.show()
+
 def main():
     # 標準語音檔案路徑
     wav_filename = r"C:\Users\USER\Desktop\A.wav"
     
     # 讀取標準語音檔案
-    rate, data = load_wav(wav_filename)
+    wave_data, fs, num_channels = load_wav(wav_filename)
+    
+    # 打印通道数
+    print("Number of channels:", num_channels)
     
     # 設定音框大小和重疊參數
     frame_size = 512
     overlap = 170
     
     # 繪製音量強度曲線
-    plot_volume_curve(data, rate, frame_size, overlap)
+    plot_volume_curve(wave_data[:, :num_channels], fs, frame_size, overlap)  # 使用正确维度的音频数据
+
 if __name__ == "__main__":
     main()
