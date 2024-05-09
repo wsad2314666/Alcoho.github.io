@@ -1,8 +1,8 @@
 import librosa
-import matplolib.pyplot as plt
+import matplotlib.pyplot as plt
 
 #讀音訊檔案
-audio_path='A.wav'
+audio_path=r'A.wav'
 y,sr=librosa.load(audio_path)
 
 #畫出波形圖
@@ -11,4 +11,14 @@ librosa.display.waveplot(y,sr=sr)
 plt.title('Waveform')
 plt.xlabel('Time')
 plt.ylabel('Amplitude')
+plt.show()
+
+#計算音訊的STFT
+D=librosa.stft(y)
+
+#畫出頻譜圖
+plt.figure(figsize=(10,4))
+librosa.display.specshow(librosa.amplitude_to_db(D,ref=np.max),y_axis='log',x_axis='time')
+plt.colorbar(format='%+2.0f dB')
+plt.title('Spectrogram')
 plt.show()
