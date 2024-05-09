@@ -13,27 +13,6 @@ def load_wav(file):
     rate, data = wav.read(file)
     return rate, data
 
-def calculate_mfcc(data, rate):
-    """計算MFCC特徵"""
-    return mfcc(data, rate)
-
-def load_reference_data(wav_filename):
-    """載入參考語音數據"""
-    # 讀取參考語音檔案
-    rate_ref, data_ref = load_wav(wav_filename)
-
-    # 計算參考語音的MFCC特徵
-    reference_mfcc = calculate_mfcc(data_ref, rate_ref)
-    
-    return reference_mfcc
-
-def similarity(input_features, reference_features):
-    """計算輸入語音與參考語音之間的相似度"""
-    # 如果輸入特徵是三維的，將其展平為二維
-    if input_features.ndim == 3:
-        input_features = input_features.reshape(input_features.shape[0], -1)
-    return cosine_similarity(input_features, reference_features)
-
 def record_audio(filename):
     """錄製與標準語音相同長度的使用者輸入的語音"""
     CHUNK = 4096  # 進一步增加帧大小
@@ -62,6 +41,28 @@ def record_audio(filename):
     wf.setframerate(RATE)
     wf.writeframes(b''.join(frames))
     wf.close()
+
+def calculate_mfcc(data, rate):
+    """計算MFCC特徵"""
+    return mfcc(data, rate)
+
+def load_reference_data(wav_filename):
+    """載入參考語音數據"""
+    # 讀取參考語音檔案
+    rate_ref, data_ref = load_wav(wav_filename)
+
+    # 計算參考語音的MFCC特徵
+    reference_mfcc = calculate_mfcc(data_ref, rate_ref)
+    
+    return reference_mfcc
+
+def similarity(input_features, reference_features):
+    """計算輸入語音與參考語音之間的相似度"""
+    # 如果輸入特徵是三維的，將其展平為二維
+    if input_features.ndim == 3:
+        input_features = input_features.reshape(input_features.shape[0], -1)
+    return cosine_similarity(input_features, reference_features)
+
 
 def main():
     # 標準語音檔案路徑
