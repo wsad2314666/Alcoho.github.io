@@ -4,17 +4,17 @@ from sklearn.model_selection import train_test_split
 from tensorflow.keras.utils import to_categorical
 import numpy as np
 
-DATA_PATH = "/Users/zhangkaiwai/Desktop/python/musicAIprogram/musicTestSample"
+DATA_PATH = "wsad2314666/Alcoho.github.io/MFCCTEST/MusicTest"
 
 
 # Input: Folder Path
 # Output: Tuple (Label, Indices of the labels, one-hot encoded labels)
 def get_labels(path=DATA_PATH):            # O
-    labels = os.listdir(path)
-    label_indices = np.arange(0, len(labels))
+    labels = os.listdir(path)# 把資料夾檔名用list存著
+    label_indices = np.arange(0, len(labels))# 用labels的len轉成陣列
     print('label_indices:', label_indices)
     return labels, label_indices, to_categorical(label_indices)
-
+to_categorical(label_indices)
 
 # Handy function to convert wav2mfcc
 def wav2mfcc(file_path, max_pad_len=11):            # O
