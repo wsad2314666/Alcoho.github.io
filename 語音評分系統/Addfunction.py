@@ -7,6 +7,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 import pyaudio
 import wave
 import matplotlib.pyplot as plt
+import librosa
 
 def load_wav(file):
     '''
@@ -54,30 +55,58 @@ def record_audio(filename):
     wf.writeframes(b''.join(frames))
     wf.close()
 
-def endpoint_detection(data_signal, frame_size, overlap, framerate):  # 添加帧率参数
+
+
+def endpoint_detection(data_signal, frame_size, overlap, framerate):  
     """端点检测"""
-    energy = np.sum(data_signal ** 2, axis=frame_size)  # 计算每个音框的能量
+    energy = np.sum(data_signal ** 2, axis=1)  # 沿着第二个维度求和
     threshold = np.mean(energy) * 1.5  # 设置能量阈值
     endpoints = np.where(energy > threshold)[0]  # 找到超过阈值的帧索引
     start = endpoints[0] - int(frame_size / 2)  # 起始点为第一个超过阈值的帧的前一半帧
     end = endpoints[-1] + int(frame_size / 2)  # 终点为最后一个超过阈值的帧的后一半帧
     return start, end
 
-def calculate_volume_curve(signal, frame_size, overlap, framerate):  # 添加帧率参数
+def calculate_volume_curve(signal, frame_size, overlap, framerate):  
     """计算音量强度曲线"""
     print("Signal shape:", signal.shape)  # 添加调试语句
     start, end = endpoint_detection(signal, frame_size, overlap, framerate)  # 传递帧率参数
     frames = signal[start:end]
+    # 在这里计算音量强度曲线，假设计算结果存储在 mag_curve 变量中
+    # 计算能量
+    energy = librosa.feature.rms(y=signal, frame_length=frame_size, hop_length=frame_size - overlap)[0]
+    mag_curve = energy  # 这里填入计算音量强度曲线的代码
+    return mag_curve
 
-def plot_volume_curve(signal, rate, frame_size, overlap):
-    """绘制音量强度曲线"""
-    mag_curve = calculate_volume_curve(signal, frame_size, overlap, rate)  # 传递帧率参数
-    time = np.arange(len(mag_curve)) * (frame_size * (1 - overlap)) / rate
-    plt.plot(time, mag_curve)
-    plt.xlabel('Time (s)')
-    plt.ylabel('Average Magnitude')
-    plt.title('Volume Intensity Curve')
-    plt.show()
+# def plot_volume_curve(signal, rate, frame_size, overlap):
+#     """绘制音量强度曲线"""
+#     mag_curve = calculate_volume_curve(signal, frame_size, overlap, rate)  # 传递帧率参数
+#     time = np.arange(len(mag_curve)) * (frame_size * (1 - overlap)) / rate
+#     plt.plot(time, mag_curve)
+#     plt.xlabel('Time (s)')
+#     plt.ylabel('Average Magnitude')
+#     plt.title('Volume Intensity Curve')
+#     plt.show()
+
+# def plot_volume_curve(signal, framerate, frame_size, overlap):
+#     """绘制音量强度曲线"""
+#     time = librosa.frames_to_time(range(len(signal)), sr=framerate, hop_length=frame_size - overlap)
+#     mag_curve = calculate_volume_curve(signal, framerate, frame_size, overlap)
+#     plt.plot(time, mag_curve)
+#     plt.xlabel('Time (s)')
+#     plt.ylabel('Average Magnitude')
+#     plt.title('Volume Intensity Curve')
+#     plt.show()
+
+def calculate_mfcc(data, rate):
+    """計算MFCC特徵"""
+    return mfcc(data, rate)
+
+def similarity(input_features, reference_features):
+    """計算輸入語音與參考語音之間的相似度"""
+    # 如果輸入特徵是三維的，將其展平為二維
+    if input_features.ndim == 3:
+        input_features = input_features.reshape(input_features.shape[0], -1)
+    return cosine_similarity(input_features, reference_features)
 
 def main():
     # 标准语音文件路径
@@ -86,15 +115,31 @@ def main():
     # 读取标准语音文件
     wave_data, framerate, num_channels, num_frames = load_wav(wav_filename)
     
+    # 錄製與標準語音相同長度的使用者輸入語音
+    user_input_filename = "user_input.wav"
+    record_audio(user_input_filename)
+
+    # 讀取使用者輸入的語音檔案並計算MFCC特徵
+    rate_user, data_user = load_wav(user_input_filename)
+    input_mfcc = calculate_mfcc(data_user, rate_user)
     # 打印通道数
     print("Number of channels:\n", num_channels)
     print("Number of wave_data:\n", wave_data)
     print("Number of framerate:\n", framerate)
     print("Number of num_frames:\n", num_frames)
+
+    # 讀取標準語音檔案並計算MFCC特徵
+    reference_mfcc = load_wav(wav_filename)
+    # 讀取使用者輸入的語音檔案並計算MFCC特徵
+    rate_user, data_user = record_audio(user_input_filename)
+    input_mfcc = calculate_mfcc(data_user, rate_user)
+    # 計算使用者輸入語音與標準語音的相似度
+    sim_scores = similarity(input_mfcc, reference_mfcc)
+    print("使用者輸入語音與標準語音的相似度比對結果：", sim_scores)
     # 设置音框大小和重叠参数
     frame_size = 512
     overlap = 170
-    plot_volume_curve(wave_data, framerate, frame_size, overlap)
-
+    #plot_volume_curve(wave_data, framerate, frame_size, overlap)
+    #plot_volume_curve(wave_data[:, 0], framerate, frame_size, overlap)
 if __name__ == "__main__":
     main()

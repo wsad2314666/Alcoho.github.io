@@ -83,13 +83,21 @@ def main():
     sim_scores = similarity(input_mfcc, reference_mfcc)
 
     print("使用者輸入語音與標準語音的相似度比對結果：", sim_scores)
+    score=100/1+2000*(sim_scores)**3
+    print("語音評分結果：", score)
+    scores = np.sum(score) * 100 / len(score)
+    # # 將相似度比對結果繪製成圖像
+    # plt.imshow(score, cmap='viridis', interpolation='nearest')
+    # plt.colorbar(label='Similarity')
+    # plt.xlabel('Standard Speech')
+    # plt.ylabel('User Input')
+    # plt.title('Similarity Matrix')
+    # plt.show()
 
-    # 將相似度比對結果繪製成圖像
-    plt.imshow(sim_scores, cmap='viridis', interpolation='nearest')
-    plt.colorbar(label='Similarity')
-    plt.xlabel('Standard Speech')
-    plt.ylabel('User Input')
-    plt.title('Similarity Matrix')
+    plt.plot(scores)
+    plt.xlabel('Frame')
+    plt.ylabel('Score')
+    plt.title('Speech Similarity Score')
     plt.show()
 
 if __name__ == "__main__":
