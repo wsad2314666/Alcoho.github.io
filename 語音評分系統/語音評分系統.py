@@ -83,7 +83,7 @@ def main():
     sim_scores = similarity(input_mfcc, reference_mfcc)
 
     print("使用者輸入語音與標準語音的相似度比對結果：", sim_scores)
-    score=100/1+2000*(sim_scores)**3
+    score=100/1+2000*(sim_scores)**2
     print("語音評分結果：", score)
     scores = np.sum(score) * 100 / len(score)
     # # 將相似度比對結果繪製成圖像

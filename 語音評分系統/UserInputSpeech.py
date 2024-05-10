@@ -17,11 +17,6 @@ def load_wav(file):
     print("Data type of data:", data.dtype)
     return rate, data
 
-
-def calculate_mfcc(data, rate):
-    """計算MFCC特徵"""
-    return mfcc(data, rate, nfft=2048)
-
 def load_reference_data(wav_filename):
     """載入參考語音數據"""
     # 讀取參考語音檔案
@@ -31,6 +26,11 @@ def load_reference_data(wav_filename):
     reference_mfcc = calculate_mfcc(data_ref, rate_ref)
     
     return reference_mfcc
+
+def calculate_mfcc(data, rate):
+    """計算MFCC特徵"""
+    return mfcc(data, rate, nfft=2048)
+
 
 def normalize_features(features):
     """正規化特徵"""
@@ -138,16 +138,6 @@ def main():
     norm_input_mfcc = normalize_features(input_mfcc)
     norm_reference_mfcc = normalize_features(reference_mfcc)
 
-    # 設置距離轉換參數
-    a1 = 1  # 從實驗數據中獲取的值
-    b1 = 1  # 從實驗數據中獲取的值
-    a2 = 1  # 從實驗數據中獲取的值
-    b2 = 1  # 從實驗數據中獲取的值
-    a3 = 1  # 從實驗數據中獲取的值
-    b3 = 1  # 從實驗數據中獲取的值
-    w1 = 1  # 調整權重以達到最佳效果
-    w2 = 1  # 調整權重以達到最佳效果
-    w3 = 1  # 調整權重以達到最佳效果
 
     # 計算語音評分
     params = (distances, a1, a2, a3, b1, b2, b3, w1, w2, w3)
