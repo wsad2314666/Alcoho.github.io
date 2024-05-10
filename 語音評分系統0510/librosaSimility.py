@@ -17,21 +17,21 @@ y1,sr1=librosa.load(audio_path1)
 y2,sr2=librosa.load(audio_path2)
 
 #1.前處理
-Audio_data1=librosa.effects.trim(audio_path1)
-Audio_data2=librosa.effects.trim(audio_path2)
+Effect_y1, _ = librosa.effects.trim(y1)
+Effect_y2, _ = librosa.effects.trim(y2)
+
 
 #兩個音檔的特徵
-
 sample_rate_audio1=librosa.get_samplerate
 trim_db=librosa.amplitude_to_db
 # 提取 Mel 频谱图特征向量
 mel1 = librosa.feature.melspectrogram(y=y1, sr=sr1)
 mel2 = librosa.feature.melspectrogram(y=y2, sr=sr2)
 
-def slience(mel,Audio_data):
+def slience(mel,Audio_data,y,sr):
     frame_threshold=10#该参数决定去掉连续多少帧的静音段，比如某段语音检测到有12帧的静音帧，则去掉这一段的语音，而如果检测到只有8帧，那么不操作
     # 求取MFCCs参数
-    y, sr = librosa.load(audio_path1, sr=441000)
+    #y, sr = librosa.load(audio_path1, sr=441000)
     mfccs = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=24,win_length=1024,hop_length=512,n_fft=1024)
 
     # # 对mfcc进行中值滤波
@@ -116,7 +116,8 @@ def slience(mel,Audio_data):
         return slience_data
 if __name__ == '__main__':  
       
-	Audio_process1=slience(mel1,Audio_data1)
+	Audio_process1=slience(mel1,audio_path1,Effect_y1,sr=sr1)
+    #Audio_process=slience(mel2,audio_path2,Effect_y2,sr=sr2)
 # # 计算欧几里得距离
 # dist = euclidean(mel1.reshape(-1), mel2.reshape(-1))
 # print('欧几里得距离为：', dist)
@@ -135,58 +136,58 @@ if __name__ == '__main__':
 #解決個人音高差異性：Linear Shifting
 #解決未知的通道效應：Cepstral Mean Subtraction
 
-# # 畫出波形圖1
-# plt.figure(figsize=(10, 4))
-# plt.plot(y1)
-# plt.title('Waveform')
-# plt.xlabel('Sample')
-# plt.ylabel('Amplitude')
-# plt.show()
+# 畫出波形圖1
+plt.figure(figsize=(10, 4))
+plt.plot(Effect_y1)
+plt.title('Waveform')
+plt.xlabel('Sample')
+plt.ylabel('Amplitude')
+plt.show()
 
-# # 計算音訊的STFT_1
-# D1 = librosa.stft(y1)
+# 計算音訊的STFT_1
+D1 = librosa.stft(Effect_y1)
 
-# # 畫出頻譜圖1
-# plt.figure(figsize=(10, 4))
-# librosa.display.specshow(librosa.amplitude_to_db(D1, ref=np.max), y_axis='log', x_axis='time')
-# plt.colorbar(format='%+2.0f dB')
-# plt.title('Spectrogram')
-# plt.show()
+# 畫出頻譜圖1
+plt.figure(figsize=(10, 4))
+librosa.display.specshow(librosa.amplitude_to_db(D1, ref=np.max), y_axis='log', x_axis='time')
+plt.colorbar(format='%+2.0f dB')
+plt.title('Spectrogram')
+plt.show()
 
-# # 畫出波形圖2
-# plt.figure(figsize=(10, 4))
-# plt.plot(y2)
-# plt.title('Waveform')
-# plt.xlabel('Sample')
-# plt.ylabel('Amplitude')
-# plt.show()
+# 畫出波形圖2
+plt.figure(figsize=(10, 4))
+plt.plot(Effect_y2)
+plt.title('Waveform')
+plt.xlabel('Sample')
+plt.ylabel('Amplitude')
+plt.show()
 
-# # 計算音訊的STFT_2
-# D2 = librosa.stft(y2)
+# 計算音訊的STFT_2
+D2 = librosa.stft(Effect_y1)
 
-# # 畫出頻譜圖2
-# plt.figure(figsize=(10, 4))
-# librosa.display.specshow(librosa.amplitude_to_db(D2, ref=np.max), y_axis='log', x_axis='time')
-# plt.colorbar(format='%+2.0f dB')
-# plt.title('Spectrogram')
-# plt.show()
+# 畫出頻譜圖2
+plt.figure(figsize=(10, 4))
+librosa.display.specshow(librosa.amplitude_to_db(D2, ref=np.max), y_axis='log', x_axis='time')
+plt.colorbar(format='%+2.0f dB')
+plt.title('Spectrogram')
+plt.show()
 
-# #擷取音訊特徵
-# feature1 = librosa.feature.mfcc(y=y1, sr=sr1)
-# feature2 = librosa.feature.mfcc(y=y2, sr=sr2)
+#擷取音訊特徵
+feature1 = librosa.feature.mfcc(y=Effect_y1, sr=sr1)
+feature2 = librosa.feature.mfcc(y=Effect_y2, sr=sr2)
 
-# # 繪製 MFCC1 特徵
-# plt.figure(figsize=(10, 4))
-# librosa.display.specshow(librosa.feature.mfcc(y=y1, sr=sr1), y_axis='log', x_axis='time')
-# plt.colorbar(format='%+2.0f dB')
-# plt.title('MFCC')
-# plt.tight_layout()
-# plt.show()
+# 繪製 MFCC1 特徵
+plt.figure(figsize=(10, 4))
+librosa.display.specshow(librosa.feature.mfcc(y=Effect_y1, sr=sr1), y_axis='log', x_axis='time')
+plt.colorbar(format='%+2.0f dB')
+plt.title('MFCC')
+plt.tight_layout()
+plt.show()
 
-# # 繪製 MFCC2 特徵
-# plt.figure(figsize=(10, 4))
-# librosa.display.specshow(librosa.feature.mfcc(y=y2, sr=sr2), y_axis='log', x_axis='time')
-# plt.colorbar(format='%+2.0f dB')
-# plt.title('MFCC')
-# plt.tight_layout()
-# plt.show()
+# 繪製 MFCC2 特徵
+plt.figure(figsize=(10, 4))
+librosa.display.specshow(librosa.feature.mfcc(y=Effect_y2, sr=sr2), y_axis='log', x_axis='time')
+plt.colorbar(format='%+2.0f dB')
+plt.title('MFCC')
+plt.tight_layout()
+plt.show()
