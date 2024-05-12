@@ -65,21 +65,34 @@ def main(audio_file_A):
     mfccs_A_normalized = normalize_mfcc(mfccs_A)
     mfccs_B_normalized = normalize_mfcc(mfccs_B)
 
+   # 繪製 MFCC 圖形
+    plt.figure(figsize=(10, 4))
+    plt.subplot(2, 1, 1)
+    librosa.display.specshow(mfccs_A_normalized, x_axis='time')
+    plt.colorbar()
+    plt.title('MFCC of Audio A')
+    plt.ylabel('MFCC Coefficients')
+    plt.xlabel('Time')
+
+    plt.subplot(2, 1, 2)
+    librosa.display.specshow(mfccs_B_normalized, x_axis='time')
+    plt.colorbar()
+    plt.title('MFCC of Audio B')
+    plt.ylabel('MFCC Coefficients')
+    plt.xlabel('Time')
+
+    plt.tight_layout()
+    plt.show()
+
     # 計算相似度分數
     score = compute_similarity_score(mfccs_A_normalized, mfccs_B_normalized)
 
     return score
-
 # 範例使用
 if __name__ == "__main__":
     audio_file_A = r"D:\wsad2314666\Alcoho.github.io\語音評分系統0510\A.wav"
     similarity_score = main(audio_file_A)
     print("相似度分數:", similarity_score)
-    plt.plot(similarity_score)
-    plt.xlabel('Frame')
-    plt.ylabel('Score')
-    plt.title('Speech Similarity Score')
-    plt.show()
 
 # import os
 # import numpy as np
