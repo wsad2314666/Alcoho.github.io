@@ -1,7 +1,7 @@
 import os
-import librosa
-import numpy as np
-import matplotlib.pyplot as plt
+import librosa # type: ignore
+import numpy as np # type: ignore
+import matplotlib.pyplot as plt # type: ignore
 import pyloudnorm as pyln
 import soundfile as sf
 import glob
