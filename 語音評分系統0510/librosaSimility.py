@@ -9,7 +9,7 @@ import tqdm
 from scipy.spatial.distance import euclidean
 from scipy.signal import medfilt
 #讀音訊檔案
-audio_path1="C:\\Users\\USER\\Desktop\\A.wav"
+audio_path1="D:\wsad2314666\Alcoho.github.io\語音評分系統0510\A.wav"
 audio_path2="C:\\Users\\USER\\Desktop\\output.wav"
 
 #載入兩個音檔，一個標準一個測試
