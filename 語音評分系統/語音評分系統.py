@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 
 app = Flask(__name__)
 
+@app.route('/')
 # 載入音檔
 def load_audio(file_path):
     audio, sr = librosa.load(file_path, sr=None)
@@ -75,7 +76,7 @@ if __name__ == "__main__":
     audio_file_B = r"C:\Users\Cmsh\Desktop\語音評分\output.wav"
     similarity_score = main(audio_file_A,audio_file_B)
     print("相似度分數:", similarity_score)
-@app.route('/')
+
 def home():
     audio_file_A = r"C:\Users\Cmsh\Desktop\語音評分\A.wav"  # 請更換為您的A音檔路徑
     audio_file_B = r"C:\Users\Cmsh\Desktop\語音評分\output.wav"  # 請更換為您的B音檔路徑

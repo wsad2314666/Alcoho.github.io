@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>西語發音矯正</title>
+</head>
+<body>
+    {% if similarity_score %}
+    <h1>您的檢測分數為{{ similarity_score }}.</h1>
+    {% endif %}
+    <h1>西語發音矯正</h1>
+    <form method="post">
+        <button type="submit">請錄音</button>
+        <select name="letter">
+            <option value="A">A</option>
+            <option value="B">B</option>
+            <option value="C">C</option>
+            <option value="D">D</option>
+            <option value="E">E</option>
+            <option value="F">F</option>
+            <!-- 在這裡添加其他字母選項 -->
+        </select>
+    </form>
+    {% if Output %}
+    <h1>您的檢測分數為{{ Output }}.</h1>
+    {% endif %}
+</body>
+</html>
