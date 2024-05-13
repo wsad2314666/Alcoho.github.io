@@ -85,7 +85,7 @@ def main(audio_file_A):
     plt.show()
 
     # 計算相似度分數
-    score = compute_similarity_score(mfccs_A_normalized, mfccs_B_normalized)
+    score = 100-compute_similarity_score(mfccs_A_normalized, mfccs_B_normalized)
 
     return score
 # 範例使用
