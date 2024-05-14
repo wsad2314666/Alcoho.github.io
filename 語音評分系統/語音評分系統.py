@@ -4,10 +4,10 @@ import librosa
 import sounddevice as sd
 from scipy.ndimage import maximum_filter1d
 import matplotlib.pyplot as plt
+import os
 
 app = Flask(__name__)
 
-@app.route('/')
 # 載入音檔
 def load_audio(file_path):
     audio, sr = librosa.load(file_path, sr=None)
@@ -42,21 +42,21 @@ def preprocess_audio(audio):
 # 主函式
 def main(audio_file_A,audio_file_B):
     # 載入音檔 A
-    audio_A, sr_A = load_audio(audio_file_A)
+    audio_A, sr_A = load_audio(r"D:\wsad2314666\Alcoho.github.io\語音評分系統\A.wav")
     # 載入音檔 B
-    audio_B, sr_B = load_audio(audio_file_B)
+    audio_B, sr_B = load_audio(r"D:\wsad2314666\Alcoho.github.io\語音評分系統\output.wav")
 
     # 去除靜音部分
     audio_A = remove_silence(audio_A)
     audio_B = remove_silence(audio_B)
 
     # 預處理雜音
-    audio_A = preprocess_audio(audio_A)
-    audio_B = preprocess_audio(audio_B)
+    audio_preA = preprocess_audio(audio_A)
+    audio_preB = preprocess_audio(audio_B)
 
     # 提取 MFCC 特徵
-    mfccs_A = extract_mfcc(audio_A, sr_A)
-    mfccs_B = extract_mfcc(audio_B, sr_A)
+    mfccs_A = extract_mfcc(audio_preA, sr_A)
+    mfccs_B = extract_mfcc(audio_preB, sr_A)
 
     # 使兩個音檔的 MFCC 特徵具有相同的維度
     min_length = min(mfccs_A.shape[1], mfccs_B.shape[1])
@@ -72,18 +72,42 @@ def main(audio_file_A,audio_file_B):
 
     return score
 if __name__ == "__main__":
-    audio_file_A = r"C:\Users\Cmsh\Desktop\語音評分\A.wav"
-    audio_file_B = r"C:\Users\Cmsh\Desktop\語音評分\output.wav"
+    audio_file_A = (r"D:\wsad2314666\Alcoho.github.io\語音評分系統\A.wav")
+    audio_file_B = (r"D:\wsad2314666\Alcoho.github.io\語音評分系統\output.wav")
     similarity_score = main(audio_file_A,audio_file_B)
     print("相似度分數:", similarity_score)
+@app.route('/', methods=['GET', 'POST'])
+def index():
+    if request.method == 'POST':
+        # 載入音檔 A
+        audio_A, sr_A = load_audio('./A.wav')
+        # 載入音檔 B
+        audio_B, sr_B = load_audio('./output.wav')
+        # 去除靜音部分
+        audio_A = remove_silence(audio_A)
+        audio_B = remove_silence(audio_B)
+        # 預處理雜音
+        audio_preA = preprocess_audio(audio_A)
+        audio_preB = preprocess_audio(audio_B)
+        # 提取 MFCC 特徵
+        mfccs_A = extract_mfcc(audio_A, sr_A)
+        mfccs_B = extract_mfcc(audio_B, sr_A)
+        # 使兩個音檔的 MFCC 特徵具有相同的維度
+        min_length = min(mfccs_A.shape[1], mfccs_B.shape[1])
+        mfccs_A = mfccs_A[:, :min_length]
+        mfccs_B = mfccs_B[:, :min_length]
+        # 正規化 MFCC 特徵
+        mfccs_A_normalized = normalize_mfcc(mfccs_A)
+        mfccs_B_normalized = normalize_mfcc(mfccs_B)
+        # 計算相似度分數
+        score1 = 100-compute_similarity_score(mfccs_A_normalized, mfccs_B_normalized)
+        score =score1(int)
+        return render_template('index.html', score=score)
+    return render_template('index.html')
 
-def home():
-    audio_file_A = r"C:\Users\Cmsh\Desktop\語音評分\A.wav"  # 請更換為您的A音檔路徑
-    audio_file_B = r"C:\Users\Cmsh\Desktop\語音評分\output.wav"  # 請更換為您的B音檔路徑
-    similarity_score = main(audio_file_A, audio_file_B)
-    Output = request.args.get(similarity_score)
-    return render_template(r"C:\Users\Cmsh\Desktop\語音評分\main.html", Output=Output)
-app.run()
+if __name__ == '__main__':
+    app.debug = True
+    app.run()
 # import os
 # import numpy as np
 # import scipy.io.wavfile as wav
@@ -287,3 +311,4 @@ app.run()
 #     audio_file_B = r"C:\Users\Cmsh\Desktop\語音評分\output.wav"
 #     similarity_score = main(audio_file_A,audio_file_B)
 #     print("相似度分數:", similarity_score)
+# sk-proj-GuDkyZWoOKeBwzSw0HTVT3BlbkFJM1S6hhwiv7PYrKmljWJf   gpt API

@@ -109,32 +109,26 @@ def similarity(input_features, reference_features):
     return cosine_similarity(input_features, reference_features)
 
 def main():
-    # 标准语音文件路径
-    wav_filename = r"C:\Users\USER\Desktop\A.wav"
-    
-    # 读取标准语音文件
-    wave_data, framerate, num_channels, num_frames = load_wav(wav_filename)
-    
-    # 錄製與標準語音相同長度的使用者輸入語音
+    # 錄製語音
     user_input_filename = "user_input.wav"
     record_audio(user_input_filename)
 
     # 讀取使用者輸入的語音檔案並計算MFCC特徵
-    rate_user, data_user = load_wav(user_input_filename)
-    input_mfcc = calculate_mfcc(data_user, rate_user)
-    # 打印通道数
-    print("Number of channels:\n", num_channels)
-    print("Number of wave_data:\n", wave_data)
-    print("Number of framerate:\n", framerate)
-    print("Number of num_frames:\n", num_frames)
+    user_wave_data, user_framerate, user_num_channels, user_num_frames = record_audio(user_input_filename)
+    user_mfcc = calculate_mfcc(user_wave_data, user_framerate)
 
+    # 標準語音路徑
+    wav_filename = 'D:/wsad2314666/Alcoho.github.io/語音評分系統/A.wav'
     # 讀取標準語音檔案並計算MFCC特徵
-    reference_mfcc = load_wav(wav_filename)
-    # 讀取使用者輸入的語音檔案並計算MFCC特徵
-    rate_user, data_user = record_audio(user_input_filename)
-    input_mfcc = calculate_mfcc(data_user, rate_user)
+    load_wave_data, load_framerate, load_num_channels, load_num_frames = load_wav(wav_filename)
+    load_mfcc = calculate_mfcc(load_wave_data, load_framerate)
+    # 打印通道数
+    print("Number of channels:\n", load_num_channels)
+    print("Number of wave_data:\n", load_wave_data)
+    print("Number of framerate:\n", load_framerate)
+    print("Number of num_frames:\n", load_num_frames)
     # 計算使用者輸入語音與標準語音的相似度
-    sim_scores = similarity(input_mfcc, reference_mfcc)
+    sim_scores = similarity(load_mfcc, user_mfcc)
     print("使用者輸入語音與標準語音的相似度比對結果：", sim_scores)
     # 设置音框大小和重叠参数
     frame_size = 512

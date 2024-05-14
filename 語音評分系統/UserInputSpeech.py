@@ -50,24 +50,24 @@ def average_magnitude_difference(frames):
     return avg_magnitude_diff
 
 
-    # CMS (Cepstral Mean Subtraction)
-    def cepstral_mean_subtraction(features):
-        """CMS"""
-        # 計算每個特徵的平均值
-        means = np.mean(features, axis=0)
-        # 減去平均值
-        return features - means
+#     # CMS (Cepstral Mean Subtraction)
+# def cepstral_mean_subtraction(features):
+#     """CMS"""
+#     # 計算每個特徵的平均值
+#     means = np.mean(features, axis=0)
+#     # 減去平均值
+#     return features - means
 
-    # 正規化特徵
-    norm_features = np.zeros_like(features)
-    # 正規化音量強度曲線
-    norm_features[:, 0] = average_magnitude(features)
-    # 正規化基頻軌跡
-    norm_features[:, 1] = average_magnitude_difference(features)
-    # 正規化CMS
-    norm_features[:, 2:] = cepstral_mean_subtraction(features[:, 2:])
+#     # 正規化特徵
+#     norm_features = np.zeros_like(features)
+#     # 正規化音量強度曲線
+#     norm_features[:, 0] = average_magnitude(features)
+#     # 正規化基頻軌跡
+#     norm_features[:, 1] = average_magnitude_difference(features)
+#     # 正規化CMS
+#     norm_features[:, 2:] = cepstral_mean_subtraction(features[:, 2:])
 
-    return norm_features
+#     return norm_features
 
 def similarity(input_features, reference_features):
     """計算輸入語音與參考語音之間的相似度"""
