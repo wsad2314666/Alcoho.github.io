@@ -14,8 +14,8 @@ def load_wav(file):
     读取一个wav文件，返回声音信号的时域谱矩阵、播放时间、通道数和帧数
     '''
     load_wav_file = wave.open(file, "rb")  # 開啟wav檔
-    load_num_frames = load_wav_file.getnframes()  # 得到音框
-    load_num_channels = load_wav_file.getnchannels()  # 得到聲道数
+    load_num_frames = load_wav_file.getnframes()  # 音框
+    load_num_channels = load_wav_file.getnchannels()  # 通道数
     load_framerate = load_wav_file.getframerate()  # 音框赫茲數
     load_num_sample_width = load_wav_file.getsampwidth()  # 得到實際的bit寬度，即每一幀率的字节数
     
@@ -23,12 +23,12 @@ def load_wav(file):
     load_wav_file.close()  # 關閉
     load_wave_data = np.frombuffer(str_data, dtype=np.int16)  # 将声音文件数据转换为数组矩阵形式
     load_wave_data = load_wave_data.reshape(-1, load_num_channels)  # 按照声道数将数组整形，单声道时候是一列数组，双声道时候是两列的矩阵
-    return load_wave_data, load_framerate, load_num_channels, load_num_frames
+    return load_wave_data, load_framerate, load_num_channels, load_num_frames# 音框
 
 def record_audio(filename):
     """录制与标准语音相同长度的用户输入的语音"""
     load_wave_data, load_framerate, load_num_channels, load_num_frames = load_wav(filename)  # 将文件名传递给 load_wav 函数
-    record_audio_frames = load_num_frames  # 設定音框
+    record_audio_frames = load_num_frames  # 音框
     record_FORMAT = pyaudio.paInt16
     record_CHANNELS = load_num_channels #通道數
     record_RATE = load_framerate # 音檔赫茲數
@@ -110,9 +110,8 @@ def similarity(input_features, reference_features):
 
 def main():
     # 錄製語音
-    user_input_filename = "user_input.wav"
+    user_input_filename = 'D:/wsad231466/user_input.wav'
     record_audio(user_input_filename)
-
     # 讀取使用者輸入的語音檔案並計算MFCC特徵
     user_wave_data, user_framerate, user_num_channels, user_num_frames = record_audio(user_input_filename)
     user_mfcc = calculate_mfcc(user_wave_data, user_framerate)
