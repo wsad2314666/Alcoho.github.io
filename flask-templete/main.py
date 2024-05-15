@@ -14,35 +14,39 @@ app = Flask(__name__)
 def load_audio(file_path):
     audio, sr = librosa.load(file_path, sr=None)
     return audio, sr
-def record_audio(filename):
-    """录制与标准语音相同长度的用户输入的语音"""
-    load_wave_data, load_framerate, load_num_channels, load_num_frames = load_audio(filename)  # 将文件名传递给 load_wav 函数
-    record_audio_frames = load_num_frames  # 設定音框
-    record_FORMAT = pyaudio.paInt16
-    record_CHANNELS = load_num_channels #通道數
-    record_RATE = load_framerate # 音檔赫茲數
+import pyaudio
+import wave
 
+def record_audio_to_file(filename, duration=4, channels=1, rate=44100, frames_per_buffer=1024):
+    """Record user's input audio and save it to the specified file."""
+    FORMAT = pyaudio.paInt16
     p = pyaudio.PyAudio()
-    stream = p.open(format=record_FORMAT, channels=record_CHANNELS, rate=record_RATE, input=True, frames_per_buffer=record_audio_frames)
+
+    # Open stream
+    stream = p.open(format=FORMAT, channels=channels, rate=rate, input=True, frames_per_buffer=frames_per_buffer)
     print("Start recording...")
 
     frames = []
-    seconds = 4  # 录制4秒，可以根据需求调整
-
-    for i in range(0, int(record_RATE / record_audio_frames * seconds)):
-        data = stream.read(record_audio_frames)
+    # Record for the given duration
+    for _ in range(0, int(rate / frames_per_buffer * duration)):
+        data = stream.read(frames_per_buffer)
         frames.append(data)
+
     print("Recording stopped")
 
     stream.stop_stream()
     stream.close()
+    p.terminate()
 
+    # Save the recorded data as a WAV file
     wf = wave.open(filename, 'wb')
-    wf.setnchannels(record_CHANNELS)
-    wf.setsampwidth(p.get_sample_size(record_FORMAT))
-    wf.setframerate(record_RATE)
+    wf.setnchannels(channels)
+    wf.setsampwidth(p.get_sample_size(FORMAT))
+    wf.setframerate(rate)
     wf.writeframes(b''.join(frames))
     wf.close()
+
+    print(f"Audio recorded and saved to {filename}")
 # 提取 MFCC 特徵
 def extract_mfcc(audio, sr):
     mfccs = librosa.feature.mfcc(y=audio, sr=sr, n_mfcc=13)
@@ -69,50 +73,16 @@ def preprocess_audio(audio):
     filtered_audio = maximum_filter1d(audio, size=3)
     return filtered_audio
 
-# 主函式
-def main(audio_file_A,audio_file_B):
-    # 載入音檔 A
-    audio_A, sr_A = load_audio('D:/wsad2314666/Alcoho.github.io/flask-templete/templates/A.wav')
-    # 載入音檔 B
-    audio_B, sr_B = load_audio('D:/wsad2314666/Alcoho.github.io/flask-templete/templates/output.wav')
-
-    # 去除靜音部分
-    audio_A = remove_silence(audio_A)
-    audio_B = remove_silence(audio_B)
-
-    # 預處理雜音
-    audio_preA = preprocess_audio(audio_A)
-    audio_preB = preprocess_audio(audio_B)
-
-    # 提取 MFCC 特徵
-    mfccs_A = extract_mfcc(audio_preA, sr_A)
-    mfccs_B = extract_mfcc(audio_preB, sr_A)
-
-    # 使兩個音檔的 MFCC 特徵具有相同的維度
-    min_length = min(mfccs_A.shape[1], mfccs_B.shape[1])
-    mfccs_A = mfccs_A[:, :min_length]
-    mfccs_B = mfccs_B[:, :min_length]
-
-    # 正規化 MFCC 特徵
-    mfccs_A_normalized = normalize_mfcc(mfccs_A)
-    mfccs_B_normalized = normalize_mfcc(mfccs_B)
-
-    # 計算相似度分數
-    score = 100-compute_similarity_score(mfccs_A_normalized, mfccs_B_normalized)
-
-    return score
-if __name__ == "__main__":
-    audio_file_A = ('D:/wsad2314666/Alcoho.github.io/flask-templete/templates/A.wav')
-    audio_file_B = ('D:/wsad2314666/Alcoho.github.io/flask-templete/templates/output.wav')
-    similarity_score = main(audio_file_A,audio_file_B)
-    print("相似度分數:", similarity_score)
 @app.route('/', methods=['GET', 'POST'])
 def index():
     if request.method == 'POST':
         # 載入音檔 A
-        audio_A, sr_A = load_audio('D:/wsad2314666/Alcoho.github.io/flask-templete/templates/A.wav')
+        audio_file_path_A = os.path.join('D:\\wsad231466\\Alcoho.github.io\\flask-templete\\templates\\A.wav')
+        audio_A, sr_A = load_audio(audio_file_path_A)
         # 載入音檔 B
-        audio_B, sr_B = load_audio('D:/wsad2314666/Alcoho.github.io/flask-templete/templates/output.wav')
+        audio_file_path_B = os.path.join('D:\\wsad231466\\Alcoho.github.io\\flask-templete\\templates\\user_input.wav')
+        record_audio_to_file(audio_file_path_B, duration=4, channels=1, rate=44100, frames_per_buffer=1024)
+        audio_B, sr_B = load_audio(audio_file_path_B)
         # 去除靜音部分
         audio_A = remove_silence(audio_A)
         audio_B = remove_silence(audio_B)
@@ -137,6 +107,43 @@ def index():
 if __name__ == '__main__':
     app.debug = True
     app.run()
+# # 主函式
+# def main(audio_file_A,audio_file_B):
+#     # 載入音檔 A
+#     audio_A, sr_A = load_audio(audio_file_A)
+#     # 載入音檔 B
+#     record_audio(audio_file_B, duration=4, channels=1, rate=sr_A, frames_per_buffer=1024)
+#     audio_B, sr_B=load_audio(audio_file_B)
+#     # 去除靜音部分
+#     audio_A = remove_silence(audio_A)
+#     audio_B = remove_silence(audio_B)
+
+#     # 預處理雜音
+#     audio_preA = preprocess_audio(audio_A)
+#     audio_preB = preprocess_audio(audio_B)
+
+#     # 提取 MFCC 特徵
+#     mfccs_A = extract_mfcc(audio_preA, sr_A)
+#     mfccs_B = extract_mfcc(audio_preB, sr_A)
+
+#     # 使兩個音檔的 MFCC 特徵具有相同的維度
+#     min_length = min(mfccs_A.shape[1], mfccs_B.shape[1])
+#     mfccs_A = mfccs_A[:, :min_length]
+#     mfccs_B = mfccs_B[:, :min_length]
+
+#     # 正規化 MFCC 特徵
+#     mfccs_A_normalized = normalize_mfcc(mfccs_A)
+#     mfccs_B_normalized = normalize_mfcc(mfccs_B)
+
+#     # 計算相似度分數
+#     score = 100-compute_similarity_score(mfccs_A_normalized, mfccs_B_normalized)
+
+#     return score
+# if __name__ == "__main__":
+#     audio_file_A = ('D:\\wsad231466\\Alcoho.github.io\\flask-templete\\templates\\A.wav')
+#     audio_file_B = ('D:\\wsad231466\\Alcoho.github.io\\flask-templete\\templates\\user_input.wav')#user_input.wav
+#     similarity_score = main(audio_file_A,audio_file_B)
+#     print("相似度分數:", similarity_score)
 # import os
 # import numpy as np
 # import scipy.io.wavfile as wav
