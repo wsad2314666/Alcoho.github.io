@@ -3,6 +3,7 @@ import numpy as np
 import scipy.io.wavfile as wav
 from scipy.fftpack import fft
 from python_speech_features import mfcc
+from scipy.ndimage import maximum_filter1d
 from sklearn.metrics.pairwise import cosine_similarity
 import pyaudio
 import wave
@@ -30,31 +31,31 @@ def record_audio(filename):
     load_wave_data, load_framerate, load_num_channels, load_num_frames = load_wav(filename)  # 将文件名传递给 load_wav 函数
     record_audio_frames = load_num_frames  # 音框
     record_FORMAT = pyaudio.paInt16
-    record_CHANNELS = load_num_channels #通道數
+    record_num_channels = load_num_channels #通道數
     record_RATE = load_framerate # 音檔赫茲數
 
     p = pyaudio.PyAudio()
-    stream = p.open(format=record_FORMAT, channels=record_CHANNELS, rate=record_RATE, input=True, frames_per_buffer=record_audio_frames)
+    stream = p.open(format=record_FORMAT, channels=record_num_channels, rate=record_RATE, input=True, frames_per_buffer=record_audio_frames)
     print("Start recording...")
 
-    frames = []
+    record_num_frames = []
     seconds = 4  # 录制4秒，可以根据需求调整
 
     for i in range(0, int(record_RATE / record_audio_frames * seconds)):
-        data = stream.read(record_audio_frames)
-        frames.append(data)
+        record_wave_data = stream.read(record_audio_frames)
+        record_num_frames.append(record_wave_data)
     print("Recording stopped")
 
     stream.stop_stream()
     stream.close()
 
     wf = wave.open(filename, 'wb')
-    wf.setnchannels(record_CHANNELS)
-    wf.setsampwidth(p.get_sample_size(record_FORMAT))
-    wf.setframerate(record_RATE)
-    wf.writeframes(b''.join(frames))
+    record_num_channels=wf.setnchannels(record_num_channels)
+    record_num_sample_width=wf.setsampwidth(p.get_sample_size(record_FORMAT))
+    record_framerate=wf.setframerate(record_RATE)
+    wf.writeframes(b''.join(record_num_frames))
     wf.close()
-
+    return record_wave_data, record_framerate, record_num_channels, record_num_frames# 音框
 
 
 def endpoint_detection(data_signal, frame_size, overlap, framerate):  
@@ -97,23 +98,35 @@ def calculate_volume_curve(signal, frame_size, overlap, framerate):
 #     plt.title('Volume Intensity Curve')
 #     plt.show()
 
-def calculate_mfcc(data, rate):
-    """計算MFCC特徵"""
-    return mfcc(data, rate)
+def calculate_mfcc(audio, sr):
+    mfccs = librosa.feature.mfcc(y=audio, sr=sr, n_mfcc=13)
+    return mfccs
 
-def similarity(input_features, reference_features):
-    """計算輸入語音與參考語音之間的相似度"""
-    # 如果輸入特徵是三維的，將其展平為二維
-    if input_features.ndim == 3:
-        input_features = input_features.reshape(input_features.shape[0], -1)
-    return cosine_similarity(input_features, reference_features)
+# 正規化 MFCC 特徵
+def normalize_mfcc(mfccs):
+    return (mfccs - np.mean(mfccs)) / np.std(mfccs)
+
+# 計算相似度分數
+def compute_similarity_score(mfccs_A, mfccs_B):
+    return np.mean(np.abs(mfccs_A - mfccs_B)) * 100
+
+# 去除靜音部分
+def remove_silence(audio, threshold=0.02):
+    non_silent_intervals = librosa.effects.split(audio, top_db=threshold)
+    non_silent_audio = np.concatenate([audio[start:end] for start, end in non_silent_intervals])
+    return non_silent_audio
+
+# 預處理雜音
+def preprocess_audio(audio):
+    # 雜音預處理，例如濾波等
+    # 這裡我們使用 maximum_filter1d 函數來濾波
+    filtered_audio = maximum_filter1d(audio, size=3)
+    return filtered_audio
 
 def main():
     # 錄製語音
     user_input_filename = 'D:/wsad231466/user_input.wav'
-    record_audio(user_input_filename)
-    # 讀取使用者輸入的語音檔案並計算MFCC特徵
-    user_wave_data, user_framerate, user_num_channels, user_num_frames = record_audio(user_input_filename)
+    user_wave_data, user_framerate, user_num_channels, user_num_frames= record_audio(user_input_filename)
     user_mfcc = calculate_mfcc(user_wave_data, user_framerate)
 
     # 標準語音路徑
@@ -127,7 +140,7 @@ def main():
     print("Number of framerate:\n", load_framerate)
     print("Number of num_frames:\n", load_num_frames)
     # 計算使用者輸入語音與標準語音的相似度
-    sim_scores = similarity(load_mfcc, user_mfcc)
+    sim_scores = compute_similarity_score(load_mfcc, user_mfcc)
     print("使用者輸入語音與標準語音的相似度比對結果：", sim_scores)
     # 设置音框大小和重叠参数
     frame_size = 512
