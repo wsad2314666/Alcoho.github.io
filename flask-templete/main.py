@@ -347,4 +347,3 @@ if __name__ == '__main__':
 #     audio_file_B = r"C:\Users\Cmsh\Desktop\語音評分\output.wav"
 #     similarity_score = main(audio_file_A,audio_file_B)
 #     print("相似度分數:", similarity_score)
-# sk-proj-GuDkyZWoOKeBwzSw0HTVT3BlbkFJM1S6hhwiv7PYrKmljWJf   gpt API
