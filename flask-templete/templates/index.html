@@ -18,8 +18,7 @@
             <option value="F">F</option>
             <!-- 在這裡添加其他字母選項 -->
         </select>
-        <button type="submit">檢測結果</button>
-        {% if score %}
+        {% if score is not none%}
         <h1>您的檢測分數為{{ score }}.</h1>
         {% endif %}
     </form>
