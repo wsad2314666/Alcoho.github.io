@@ -7,20 +7,19 @@
 </head>
 <body>
     <h1>西語發音矯正</h1>
-    <form method="post">
-        <button type="submit">請錄音</button>
-        <select name="letter">
-            <option value="A">A</option>
-            <option value="B">B</option>
-            <option value="C">C</option>
-            <option value="D">D</option>
-            <option value="E">E</option>
-            <option value="F">F</option>
-            <!-- 在這裡添加其他字母選項 -->
+    <form method="Post" action="/">
+        <select name="speechFile" required>
+            <option value="A.wav">A</option>
+            <option value="B.wav">B</option>
+            <option value="C.wav">C</option>
+            <option value="D.wav">D</option>
+            <option value="E.wav">E</option>
+            <option value="F.wav">F</option>
         </select>
+        <button type="submit">Submit</button>
         {% if score is not none%}
         <h1>您的檢測分數為{{ score }}.</h1>
-        {% endif %}
+        {% endif %}       
     </form>
 </body>
 </html>
