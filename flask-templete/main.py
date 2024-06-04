@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for
+from flask import Flask, render_template, request, redirect, url_for,jsonify
 import numpy as np
 import librosa
 import sounddevice as sd
@@ -69,6 +69,22 @@ def preprocess_audio(audio):
     # 這裡我們使用 maximum_filter1d 函數來濾波
     filtered_audio = maximum_filter1d(audio, size=3)
     return filtered_audio
+@app.route('/get_audio_length', methods=['POST'])
+def get_audio_length():
+    selected_file = request.json['speechFile']
+    audio_file_path_A = os.path.join('C:\\Users\\USER\\Desktop\\flask-templete\\static\\audio\\', selected_file)
+    audio_A, sr_A = load_audio(audio_file_path_A)
+    duration = librosa.get_duration(y=audio_A, sr=sr_A)
+    return jsonify(length=duration)
+
+@app.route('/upload_audio', methods=['POST'])
+def upload_audio():
+    if 'file' not in request.files:
+        return 'No file part', 400
+
+    file = request.files['file']
+    file.save(os.path.join('C:\\Users\\USER\\Desktop\\flask-templete\\static\\audio\\user_input.wav'))
+    return 'File uploaded successfully', 200
 @app.route('/', methods=['GET', 'POST'])
 def index():
     if request.method == 'POST':
@@ -78,7 +94,7 @@ def index():
         audio_A, sr_A = load_audio(audio_file_path_A)
         # 載入音檔 B
         audio_file_path_B = os.path.join('C:\\Users\\USER\\Desktop\\flask-templete\\static\\audio\\user_input.wav')
-        record_audio_to_file(audio_file_path_B, duration=4, channels=1, rate=44100, frames_per_buffer=1024)
+        # record_audio_to_file(audio_file_path_B, duration=4, channels=1, rate=44100, frames_per_buffer=1024)
         audio_B, sr_B = load_audio(audio_file_path_B)
         # 去除靜音部分
         audio_A = remove_silence(audio_A)

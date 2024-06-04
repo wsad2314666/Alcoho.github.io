@@ -8,19 +8,17 @@ let mediaRecorder;
 let source;
 let stream;
 let isRecording = false;
+let chunks = [];
+let recordingLength = 0;
 
 document.addEventListener('DOMContentLoaded', () => {
     canvas = document.getElementById('waveform');
     canvasCtx = canvas.getContext('2d');
-    canvas.addEventListener('click', toggleRecording);
 });
 
 async function toggleRecording() {
-    if (isRecording) {
-        stopRecording();
-    } else {
-        await startRecording();
-    }
+    await getRecordingLength();
+    startRecording();
 }
 
 async function startRecording() {
@@ -32,6 +30,32 @@ async function startRecording() {
     analyser.fftSize = 2048;
     bufferLength = analyser.frequencyBinCount;
     dataArray = new Uint8Array(bufferLength);
+
+    mediaRecorder = new MediaRecorder(stream);
+    mediaRecorder.ondataavailable = (e) => {
+        chunks.push(e.data);
+    };
+    mediaRecorder.onstop = async () => {
+        const blob = new Blob(chunks, { type: 'audio/wav' });
+        chunks = [];
+        const file = new File([blob], 'user_input.wav');
+        const formData = new FormData();
+        formData.append('file', file);
+
+        await fetch('/upload_audio', {
+            method: 'POST',
+            body: formData,
+        });
+
+        stream.getTracks().forEach(track => track.stop());
+        console.log('Recording stopped and sent to server');
+    };
+
+    mediaRecorder.start();
+
+    setTimeout(() => {
+        mediaRecorder.stop();
+    }, recordingLength * 1000);
 
     isRecording = true;
     draw();
@@ -71,14 +95,4 @@ function draw() {
 
     canvasCtx.lineTo(canvas.width, canvas.height / 2);
     canvasCtx.stroke();
-}
-
-function stopRecording() {
-    if (stream) {
-        stream.getTracks().forEach(track => track.stop());
-    }
-    if (audioContext) {
-        audioContext.close();
-    }
-    isRecording = false;
 }
