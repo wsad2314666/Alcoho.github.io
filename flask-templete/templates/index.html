@@ -65,10 +65,10 @@
             }
 
         </style>
-        <div class="flex justify-end items-center mb-8">
+        <!--<div class="flex justify-end items-center mb-8">
             <div class="text-2xl text-gray-700 mr-4 lxgw-wenkai-tc-regular ">AI小助手</div>
             <img src='static\\image\\kusohamu.png' alt="Cute assistant icon" class="w+30 h+30">
-        </div>         
+        </div>-->         
         <div class="flex flex-col lg:flex-row gap-8 mb-8">
             <div class="bg-white p-4 rounded-lg shadow-md flex-1">
                 <div class="text-center mt-2 text-lg lxgw-wenkai-tc-regular">按下聲波開始錄音</div>
@@ -93,7 +93,7 @@
                             cursor: pointer;
                         }
                     </style>
-                    <button type="start" id="start" class="lxgw-wenkai-tc-regular">Submit</button>
+                    <button type="start" id="start" class="lxgw-wenkai-tc-regular">Start</button>
                     {% if score is not none%}
                     <h1 class="lxgw-wenkai-tc-regular">您的檢測分數為{{ score }}.</h1>
                     {% endif %} 
@@ -101,22 +101,23 @@
             </div>
             <div class="bg-white p-4 rounded-lg shadow-md flex-1 flex flex-col items-center">
                 <div class="w-full h-32 flex items-center justify-center bg-gray-100 rounded-lg text-4xl">/a/</div>
-                {%if score < 40 %}
-                <div class="w-full h-32 flex items-center justify-center bg-gray-100 rounded-lg text-4xl mt-4 text-xl text-green-600 lxgw-wenkai-tc-regular">請再說一次，或是靠近麥克風</div>
-                {% endif %}
                 {%if score > 40 %}
-                    {%if score < 80 %}
-                    <div class="w-full h-32 flex items-center justify-center bg-gray-100 rounded-lg text-4xl mt-4 text-xl text-green-600 lxgw-wenkai-tc-regular">收看影片中老師的嘴型，或者是再聆聽一次音檔</div>
-                    {% endif %}
-                {% endif %}
-                {%if score > 80 %}
-                <div class="w-full h-32 flex items-center justify-center bg-gray-100 rounded-lg text-4xl mt-4 text-xl text-green-600 lxgw-wenkai-tc-regular">你說得非常好</div>
+                    {%if score < 60 %}
+                        <div class="w-full h-32 flex items-center justify-center bg-gray-100 rounded-lg text-4xl mt-4 text-xl text-red-600 lxgw-wenkai-tc-regular">請再說一次，或是靠近麥克風</div>
+                    {%elif score < 80 %}
+                        <div class="w-full h-32 flex items-center justify-center bg-gray-100 rounded-lg text-4xl mt-4 text-xl text-red-600 lxgw-wenkai-tc-regular">你可能要注意嘴型，或是再聽一次音檔</div>
+                    {%elif score < 100 %}
+                        <div class="w-full h-32 flex items-center justify-center bg-gray-100 rounded-lg text-4xl mt-4 text-xl text-red-600 lxgw-wenkai-tc-regular">非常完美</div>
+                    {%endif%}
+                {%endif%}
+                {%if score < 40%}
+                <div class="w-full h-32 flex items-center justify-center bg-gray-100 rounded-lg text-4xl mt-4 text-xl text-green-600 lxgw-wenkai-tc-regular">請依照字母發音</div>
                 {%endif%}
             </div>
         </div>
         <div class="bg-white p-4 rounded-lg shadow-md w-full mb-8">
             <h2 align="center" class="text-2xl mb-4 lxgw-wenkai-tc-regular">"A"的發音</h2>
-            <iframe width="100%" height="315" src="https://youtu.be/EHw_zm4la2Q?si=lPlfOVEYCbHCAL4M" frameborder="0" allowfullscreen></iframe>
+            <iframe width="100%" height="315" src="https://www.youtube.com/watch?v=EHw_zm4la2Q" frameborder="0" allowfullscreen></iframe>
         </div>
     </div>
     <script src="/static/js/waveform.js"></script>
