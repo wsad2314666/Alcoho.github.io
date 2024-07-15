@@ -4,12 +4,11 @@ import matplotlib.pyplot as plt
 import os
 
 # Load the audio file
-wave_file = os.path.join('D:\\系統檔 Documents\\GitHub\\Alcoho.github.io\\flask-templete\\static\\audio\\A.wav')
+wave_file = os.path.join('C:\\Users\\USER\\Desktop\\flask-templete\\static\\audio\\A.wav')
 y, sr = librosa.load(wave_file, sr=None)
 
 # Zero-mean subtraction
 y = y - np.mean(y)
-
 # Framing
 frame_size = 256
 hop_length = 128
@@ -32,6 +31,9 @@ zcr_th1 = np.max(zcr) * 0.1
 zcr_th2 = np.median(zcr) * 0.1
 zcr_th3 = np.min(zcr) * 10
 zcr_th4 = zcr[0] * 5
+# Debug: Print threshold values
+print(f"Volume thresholds: {volume_th1}, {volume_th2}, {volume_th3}, {volume_th4}")
+print(f"ZCR thresholds: {zcr_th1}, {zcr_th2}, {zcr_th3}, {zcr_th4}")
 
 # Find endpoint indices based on volume thresholds
 index1 = np.where(volume > volume_th1)
@@ -44,6 +46,8 @@ zcr_index1 = np.where(zcr > zcr_th1)
 zcr_index2 = np.where(zcr > zcr_th2)
 zcr_index3 = np.where(zcr > zcr_th3)
 zcr_index4 = np.where(zcr > zcr_th4)
+# Debug: Print indices
+print(f"ZCR indices for threshold 4: {zcr_index4}")
 
 def frame_to_sample_index(indices, hop_length):
     return indices * hop_length
@@ -59,6 +63,10 @@ zcr_end_point1 = frame_to_sample_index(zcr_index1[0], hop_length)
 zcr_end_point2 = frame_to_sample_index(zcr_index2[0], hop_length)
 zcr_end_point3 = frame_to_sample_index(zcr_index3[0], hop_length)
 zcr_end_point4 = frame_to_sample_index(zcr_index4[0], hop_length)
+
+# Check if zcr_end_point4 is empty
+if len(zcr_end_point4) == 0:
+    print("No ZCR endpoints found for threshold 4.")
 
 # Plotting
 time = np.arange(len(y)) / sr

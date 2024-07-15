@@ -404,10 +404,10 @@ if __name__ == '__main__':
     # app.debug = True
     # app.run()
 
-    audio_file_path_A = os.path.join('C:\\Users\\USER\\Desktop\\flask-templete\\static\\audio\\A.wav')
+    audio_file_path_A = os.path.join('C:\\Users\\USER\\Desktop\\flask-templete\\static\\audio\\F.wav')
     audio_A, sr_A = load_audio(audio_file_path_A)
     #print(audio_A)
-    audio_file_path_B=os.path.join('C:\\Users\\USER\\Desktop\\flask-templete\\static\\audio\\B.wav')
+    audio_file_path_B=os.path.join('C:\\Users\\USER\\Desktop\\flask-templete\\static\\audio\\A.wav')
     # record_audio_to_file('D:\\系統檔 Documents\\GitHub\\Alcoho.github.io\\flask-templete\\static\\audio\\user_input.wav',duration=3, channels=1, rate=44100, frames_per_buffer=1)
     audio_B, sr_B = load_audio(audio_file_path_B)
     print(audio_B)
@@ -493,17 +493,17 @@ if __name__ == '__main__':
     print(score)
     score=distance_to_score(distancePIT, 0.00000000150193575922916, 9.82746911958941)
     print(score)
-    # #return 100 / (1 + a * (dist ** b))
-    # # Assuming ave_mag_A_scaled, ave_mag_B_scaled, lin_pitch_A, lin_pitch_B, mfccs_A_cms, mfccs_B_cms are defined and populated with your data.
-    # distAVG, distPIT, distMFCC = calculate_distances(ave_mag_A_scaled, ave_mag_B_scaled, lin_pitch_A, lin_pitch_B, mfccs_A_cms, mfccs_B_cms)
-    # # Initial guess for optimization: [a1, b1, a2, b2, a3, b3, w1, w2, w3]
-    # #a b為距離轉成分數的參數,w為為三個特徵的權重
-    # #為了求得我們設計了以下實驗：首先我們先收集10句CNN互動英語的句字，當成標準語音，再請實驗室同學依此10句錄音，當成測試語音，總共收集了320句測試語音，每一句跟標準答案比
-    # initial_guess = [1, 1, 1, 1, 1, 1, 0.7, 0.2, 0.1]
-    # optimized_params = optimize_parameters(distAVG, distPIT, distMFCC, initial_guess)
-    # print("Optimized parameters:", optimized_params)
-    # total_score=scoring_function(optimized_params, distAVG, distPIT, distMFCC)
-    # print("Total score:", total_score)
+    #return 100 / (1 + a * (dist ** b))
+    # Assuming ave_mag_A_scaled, ave_mag_B_scaled, lin_pitch_A, lin_pitch_B, mfccs_A_cms, mfccs_B_cms are defined and populated with your data.
+    distAVG, distPIT, distMFCC = calculate_distances(ave_mag_A_scaled, ave_mag_B_scaled, lin_pitch_A, lin_pitch_B, mfccs_A_cms, mfccs_B_cms)
+    # Initial guess for optimization: [a1, b1, a2, b2, a3, b3, w1, w2, w3]
+    #a b為距離轉成分數的參數,w為為三個特徵的權重
+    #為了求得我們設計了以下實驗：首先我們先收集10句CNN互動英語的句字，當成標準語音，再請實驗室同學依此10句錄音，當成測試語音，總共收集了320句測試語音，每一句跟標準答案比
+    initial_guess = [1, 1, 1, 1, 1, 1, 0.7, 0.2, 0.1]
+    optimized_params = optimize_parameters(distAVG, distPIT, distMFCC, initial_guess)
+    print("Optimized parameters:", optimized_params)
+    total_score=scoring_function(optimized_params, distAVG, distPIT, distMFCC)
+    print("Total score:", total_score)
 
 
     # # 預處理雜音
