@@ -339,70 +339,68 @@ def scoring_function(params, distAVG, distPIT, distMFCC):
     scoreMFCC = distance_to_score(distMFCC, a3, b3)
     total_score = w1 * scoreAVG + w2 * scorePIT + w3 * scoreMFCC
     return total_score
-@app.route('/get_audio_length', methods=['POST'])
-def get_audio_length():
-    selected_file = request.json['speechFile']
-    audio_file_path_A = os.path.join('C:\\Users\\USER\\Desktop\\flask-templete\\static\\audio', selected_file)
-    audio_A, sr_A = load_audio(audio_file_path_A)
-    duration = librosa.get_duration(y=audio_A, sr=sr_A)
-    return jsonify(length=duration)
-
-@app.route('/upload_audio', methods=['POST'])
-def upload_audio():
-    if 'file' not in request.files:
-        return 'No file part', 400
-
-    file = request.files['file']
-    file.save(os.path.join('C:\\Users\\USER\\Desktop\\flask-templete\\static\\audio\\user_input.wav'))
-    return 'File uploaded successfully', 200
-@app.route('/', methods=['GET', 'POST'])
+@app.route('/')
 def index():
-    if request.method == 'POST':
-        selected_file = request.form['speechFile']
-        # audio_file_path_A = os.path.join('C:\\Users\\USER\\Desktop\\flask-templete\\static\\audio\\A.wav')
-        audio_A, sr_A = load_audio(audio_file_path_A)
-        # audio_file_path_B=record_audio_to_file('C:\\Users\\USER\\Desktop\\flask-templete\\static\\audio\\user_input.wav',duration=3, channels=1, rate=44100, frames_per_buffer=1)
-        audio_B, sr_B = load_audio(audio_file_path_B)
-        audio_pre_A=remove_silence(audio_A)
-        audio_pre_B=remove_silence(audio_B)
-        pitch_A=extract_pitch(audio_pre_A,sr_A)#pitch tracking A 基頻軌跡
-        pitch_B=extract_pitch(audio_pre_B,sr_B)#pitch tracking B
-        ave_mag_A =AveMag(audio_pre_A,sr_A)#音量強度曲線
-        ave_mag_B = AveMag(audio_pre_B,sr_B)#音量強度曲線
-        #音量強度曲線插值處理
-        target_length = max(len(ave_mag_A), len(ave_mag_B))
-        ave_mag_A_interp = Interpolation(ave_mag_A, target_length)
-        ave_mag_B_interp = Interpolation(ave_mag_B, target_length)
-        #基頻軌跡插值處理
-        target_length = max(len(pitch_A), len(pitch_B))
-        pitch_A_interp = Interpolation(pitch_A, target_length)
-        pitch_B_interp = Interpolation(pitch_A, target_length)
-        lin_pitch_A,lin_pitch_B=linear_shifting(pitch_A_interp,pitch_B_interp)
-        # 線性縮放
-        ave_mag_B_scaled_ajt, ave_mag_A_scaled_ajt = linear_scaling(ave_mag_A_interp, ave_mag_B_interp)
-        # 確保輸入為一維
-        ave_mag_A_scaled = np.array(ave_mag_A_scaled_ajt).flatten()
-        ave_mag_B_scaled = np.array(ave_mag_B_scaled_ajt).flatten()
-        #提取 MFCC 特徵
-        mfccs_A= extract_mfcc(audio_pre_A, sr_A)
-        mfccs_B= extract_mfcc(audio_pre_B, sr_B)
-        # 使用 CMS 消除通道效應
-        mfccs_A_cms = cepstral_mean_subtraction(mfccs_A)
-        mfccs_B_cms = cepstral_mean_subtraction(mfccs_B)
-        #音量強度曲線的計算 DTW 距離和路徑
-        distanceAVG, pathAVG = dynamic_time_warpingAVG(ave_mag_A_scaled, ave_mag_B_scaled)
-        #基頻軌跡的 DTW 距離和路徑
-        distancePIT, pathPIT = dynamic_time_warpingAVG(lin_pitch_A, lin_pitch_B)
-        #MFCC的計算 DTW 距離和路徑
-        distanceMFCC, pathMFCC = dynamic_time_warpingMFCC(mfccs_A_cms, mfccs_B_cms)
-        score=distance_to_score(distanceAVG, 0.00000000150193575922916, 9.82746911958941)
-        print(score)
-        return render_template('index.html', score=score)
-    return render_template('index.html',score=0)
+    return render_template('Spanish.html')
+
+@app.route('/speech_file', methods=['POST'])
+def receive_speech_file():
+    global selected_file,audio_file_path_A
+    selected_file = request.json.get('speechFile')
+    audio_file_path_A = os.path.join('C:\\Users\\USER\\Desktop\\flask-templete\\static\\audio\\', selected_file)
+    return jsonify({'message': 'Received speechFile successfully'})
+
+@app.route('/record_audio', methods=['POST'])
+def record_audio():
+    global audio_file_path_B
+    audio_file_path_B = 'C:\\Users\\USER\\Desktop\\flask-templete\\static\\audio\\user_input.wav'
+    record_audio_to_file(audio_file_path_B, duration=3, channels=1, rate=44100, frames_per_buffer=1)
+    return jsonify({'message': 'Audio recorded successfully'})
+
+@app.route('/process_audio', methods=['POST'])
+def process_audio():
+    audio_A, sr_A = load_audio(audio_file_path_A)
+    audio_B, sr_B = load_audio(audio_file_path_B)
+    audio_pre_A = remove_silence(audio_A)
+    audio_pre_B = remove_silence(audio_B)
+    pitch_A = extract_pitch(audio_pre_A, sr_A)#pitch tracking A 基頻軌跡
+    pitch_B = extract_pitch(audio_pre_B, sr_B)#pitch tracking B 基頻軌跡
+    ave_mag_A = AveMag(audio_pre_A, sr_A)#音量強度曲線
+    ave_mag_B = AveMag(audio_pre_B, sr_B)#音量強度曲線
+    
+    # 插值处理
+    target_length = max(len(ave_mag_A), len(ave_mag_B))
+    ave_mag_A_interp = Interpolation(ave_mag_A, target_length)
+    ave_mag_B_interp = Interpolation(ave_mag_B, target_length)
+    #基頻軌跡插值處理
+    pitch_A_interp = Interpolation(pitch_A, target_length)
+    pitch_B_interp = Interpolation(pitch_B, target_length)
+    lin_pitch_A, lin_pitch_B = linear_shifting(pitch_A_interp, pitch_B_interp)
+    ave_mag_B_scaled_ajt, ave_mag_A_scaled_ajt = linear_scaling(ave_mag_A_interp, ave_mag_B_interp)
+     # 確保輸入為一維
+    ave_mag_A_scaled = np.array(ave_mag_A_scaled_ajt).flatten()
+    ave_mag_B_scaled = np.array(ave_mag_B_scaled_ajt).flatten()
+    mfccs_A = extract_mfcc(audio_pre_A, sr_A)
+    mfccs_B = extract_mfcc(audio_pre_B, sr_B)
+    # 使用 CMS 消除通道效應
+    mfccs_A_cms = cepstral_mean_subtraction(mfccs_A)
+    mfccs_B_cms = cepstral_mean_subtraction(mfccs_B)
+    #音量強度曲線的計算 DTW 距離和路徑
+    distanceAVG, pathAVG = dynamic_time_warpingAVG(ave_mag_A_scaled, ave_mag_B_scaled)
+    #基頻軌跡的 DTW 距離和路徑
+    distancePIT, pathPIT = dynamic_time_warpingAVG(lin_pitch_A, lin_pitch_B)
+    #MFCC的計算 DTW 距離和路徑
+    distanceMFCC, pathMFCC = dynamic_time_warpingMFCC(mfccs_A_cms, mfccs_B_cms)
+    score = distance_to_score(distanceAVG, 0.00000000150193575922916, 9.82746911958941)
+    
+    return jsonify({"score": round(score, 3)})
 
 if __name__ == '__main__':
-    # app.debug = True
-    # app.run()
+    app.run(debug=True)
+
+if __name__ == '__main__':
+    app.debug = True
+    app.run()
 
     audio_file_path_A = os.path.join('C:\\Users\\USER\\Desktop\\flask-templete\\static\\audio\\F.wav')
     audio_A, sr_A = load_audio(audio_file_path_A)
