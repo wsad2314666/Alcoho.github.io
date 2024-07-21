@@ -1,113 +1,129 @@
 import os
 import numpy as np
 import librosa
-import tensorflow as tf
-import wave
-import pyaudio
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import confusion_matrix, classification_report
+import seaborn as sns
+import matplotlib.pyplot as plt
+from tensorflow.keras.utils import to_categorical
+from tqdm import tqdm
+from tensorflow import keras
 from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import Dense, Dropout
-from tensorflow.keras.optimizers import Adam
+from tensorflow.keras.layers import Dense, Dropout, Flatten, Conv2D, MaxPooling2D
+from tensorflow.keras.models import load_model
 
 # 資料路徑
-train_audio_path = 'C:\\Users\\USER\\Desktop\\flask-templete\\train'
+DATA_PATH = 'C:\\Users\\USER\\Desktop\\flask-templete\\train'
+LABEL = 'A'
 test_audio_path = 'C:\\Users\\USER\\Desktop\\flask-templete\\static\\audio'
+feature_dim_1 = 13  # MFCC features
+feature_dim_2 = 50  # Modify this based on the correct number of timesteps
+channel = 1
+epochs = 2500
+batch_size = 10
+verbose = 1
+num_classes = 1  # 只有一個類別 'A'
 
-def extract_features(y, sr):
-    mfccs = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=13)
-    chroma = librosa.feature.chroma_stft(y=y, sr=sr)
-    mel = librosa.feature.melspectrogram(y=y, sr=sr)
-    contrast = librosa.feature.spectral_contrast(y=y, sr=sr)
-    
-    mfccs = np.mean(mfccs.T, axis=0)
-    chroma = np.mean(chroma.T, axis=0)
-    mel = np.mean(mel.T, axis=0)
-    contrast = np.mean(contrast.T, axis=0)
-    
-    return np.hstack([mfccs, chroma, mel, contrast])
+def get_labels(path=DATA_PATH):  
+    labels = [LABEL]
+    label_indices = np.arange(0, len(labels))
+    return labels, label_indices, to_categorical(label_indices)  # 回傳['A'] [0] [[1. 0. 0.]]
 
-def load_audio_files(path, num_files, duration=3):
-    audio_files = []
-    labels = []
-    for i in range(1, num_files + 1):
-        file_path = os.path.join(path, f'A{i}.wav')
-        y, sr = librosa.load(file_path, sr=None, duration=duration)
-        if len(y) < sr * duration:
-            y = np.pad(y, (0, sr * duration - len(y)))
-        features = extract_features(y, sr)
-        audio_files.append(features)
-        labels.append(0)  # 假設所有訓練檔案標籤相同
-    return np.array(audio_files), np.array(labels)
+def cepstral_mean_subtraction(mfccs):
+    mean = np.mean(mfccs, axis=1, keepdims=True)
+    cms_mfccs = mfccs - mean
+    return cms_mfccs
 
-def compute_similarity(model, test_file, duration=3):
-    y, sr = librosa.load(test_file, sr=None, duration=duration)
-    if len(y) < sr * duration:
-        y = np.pad(y, (0, sr * duration - len(y)))
-    features = extract_features(y, sr)
-    features = np.expand_dims(features, axis=0)  # 擴展維度以符合模型輸入
-    prediction = model.predict(features)
-    return prediction[0][0]
+def wav2mfcc(file_path, max_len=50):  # Modify max_len based on the correct number of timesteps
+    wave, sr = librosa.load(file_path, mono=True, sr=44100)
+    mfccs = librosa.feature.mfcc(y=wave, sr=sr, n_mfcc=feature_dim_1)
+    mfcc = cepstral_mean_subtraction(mfccs)
+    if (max_len > mfcc.shape[1]):
+        pad_width = max_len - mfcc.shape[1]
+        mfcc = np.pad(mfcc, pad_width=((0, 0), (0, pad_width)), mode='constant')
+    else:
+        mfcc = mfcc[:, :max_len]
+    return mfcc
 
-# 構建神經網路模型
-def create_model(input_shape):
+def save_data_to_array(path=DATA_PATH, max_len=50):
+    labels, _, _ = get_labels(path)
+    mfcc_vectors = []
+    wavfiles = [os.path.join(path, wavfile) for wavfile in os.listdir(path)]
+    for wavfile in tqdm(wavfiles, "Saving vectors of label - '{}'".format(LABEL)):
+        mfcc = wav2mfcc(wavfile, max_len=max_len)
+        mfcc_vectors.append(mfcc)
+    np.save(LABEL + '.npy', np.array(mfcc_vectors))
+
+def get_train_test(split_ratio=0.6, random_state=42):
+    labels, indices, _ = get_labels(DATA_PATH)
+    X = np.load(LABEL + '.npy')
+    y = np.zeros(X.shape[0])
+    return train_test_split(X, y, test_size=(1 - split_ratio), random_state=random_state, shuffle=True)
+
+def get_model():
     model = Sequential()
-    model.add(Dense(256, activation='relu', input_shape=input_shape))
-    model.add(Dropout(0.5))
+    model.add(Conv2D(32, kernel_size=(2, 2), activation='relu', input_shape=(feature_dim_1, feature_dim_2, channel)))
+    model.add(Conv2D(48, kernel_size=(2, 2), activation='relu'))
+    model.add(Conv2D(120, kernel_size=(2, 2), activation='relu'))
+    model.add(MaxPooling2D(pool_size=(2, 2)))
+    model.add(Dropout(0.25))
+    model.add(Flatten())
     model.add(Dense(128, activation='relu'))
-    model.add(Dropout(0.5))
+    model.add(Dropout(0.25))
     model.add(Dense(64, activation='relu'))
-    model.add(Dropout(0.5))
-    model.add(Dense(1, activation='sigmoid'))  # 二元分類
-    model.compile(loss='binary_crossentropy', optimizer=Adam(), metrics=['accuracy'])
+    model.add(Dropout(0.4))
+    model.add(Dense(num_classes, activation='sigmoid'))
+    model.compile(loss='binary_crossentropy',
+                  optimizer=keras.optimizers.Adadelta(),
+                  metrics=['accuracy'])
     return model
 
-# 訓練模型
-def train_model(model, x_train, y_train, epochs=50, batch_size=8):
-    model.fit(x_train, y_train, epochs=epochs, batch_size=batch_size, verbose=1)
-    return model
-def record_audio_to_file(filename, duration=3, channels=1, rate=44100, frames_per_buffer=1):
-    """Record user's input audio and save it to the specified file."""
-    FORMAT = pyaudio.paInt16
-    p = pyaudio.PyAudio()
+def predict(filepath, model):
+    sample = wav2mfcc(filepath)
+    sample_reshaped = sample.reshape(1, feature_dim_1, feature_dim_2, channel)
+    prediction = model.predict(sample_reshaped)
+    accuracy = prediction[0][0]
+    return get_labels()[0][0], accuracy
 
-    # Open stream
-    stream = p.open(format=FORMAT, channels=channels, rate=rate, frames_per_buffer=frames_per_buffer, input=True)
-    print("Start recording...")
-
-    frames = []
-    # Record for the given duration
-    for _ in range(0, int(rate / frames_per_buffer * duration)):
-        data = stream.read(frames_per_buffer)
-        frames.append(data)
-    print("Recording stopped")
-    stream.stop_stream()
-    stream.close()
-    p.terminate()
-    # Save the recorded data as a WAV file
-    wf = wave.open(filename, 'wb')
-    wf.setnchannels(channels)
-    wf.setsampwidth(p.get_sample_size(FORMAT))
-    wf.setframerate(rate)
-    wf.writeframes(b''.join(frames))
-    wf.close()
-
-    print(f"Audio recorded and saved to {filename}")
-    return filename
 # 主程式
 def main():
-    # 載入訓練資料
-    x_train, y_train = load_audio_files(train_audio_path, 10)
-    input_shape = (x_train.shape[1],)
-    
-    # 創建並訓練模型
-    model = create_model(input_shape)
-    model = train_model(model, x_train, y_train)
+    save_data_to_array(max_len=feature_dim_2)
 
-    #錄製音檔    
-    #record_audio_to_file('C:\\Users\\USER\\Desktop\\flask-templete\\static\\audio\\user_input.wav')
-    # 測試音檔相似度計算
-    test_file = os.path.join(test_audio_path, 'A.wav')
-    similarity = compute_similarity(model, test_file)
-    print(f'Similarity with training audio: {similarity:.2f}')
+    X_train, X_test, y_train, y_test = get_train_test()
+
+    X_train = X_train.reshape(X_train.shape[0], feature_dim_1, feature_dim_2, channel)
+    X_test = X_test.reshape(X_test.shape[0], feature_dim_1, feature_dim_2, channel)
+
+    y_train_hot = to_categorical(y_train)
+    y_test_hot = to_categorical(y_test)
+
+    model = get_model()
+    history = model.fit(X_train, y_train_hot, batch_size=batch_size, epochs=epochs, verbose=verbose, validation_data=(X_test, y_test_hot))
+    model.save('MFCC.h5')
+    model2 = load_model('MFCC.h5')
+    
+    # 查看訓練結果
+    print("Training Accuracy: ", history.history['accuracy'][-1])
+    print("Validation Accuracy: ", history.history['val_accuracy'][-1])
+    print("Training Loss: ", history.history['loss'][-1])
+    print("Validation Loss: ", history.history['val_loss'][-1])
+    
+    # 混淆矩陣
+    y_pred = model2.predict(X_test)
+    y_pred_classes = (y_pred > 0.5).astype(int).reshape(-1)
+    y_true = y_test.astype(int)
+    
+    conf_matrix = confusion_matrix(y_true, y_pred_classes)
+    sns.heatmap(conf_matrix, annot=True, fmt='d')
+    plt.xlabel('Predicted')
+    plt.ylabel('True')
+    plt.show()
+    
+    # 顯示分類報告
+    print(classification_report(y_true, y_pred_classes))
+    
+    predicted_label, accuracy = predict('C:\\Users\\USER\\Desktop\\flask-templete\\static\\audio\\B.wav', model=model2)
+    print(f"Predicted label: {predicted_label}, Accuracy: {accuracy:.2f}")
 
 if __name__ == "__main__":
     main()

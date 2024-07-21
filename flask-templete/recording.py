@@ -31,5 +31,5 @@ def record_audio_to_file(filename, duration=3, channels=1, rate=44100, frames_pe
     print(f"Audio recorded and saved to {filename}")
     return filename
 if __name__ == '__main__':
-    filename='C:\\Users\\USER\\Desktop\\flask-templete\\train\\A1.wav'
+    filename='C:\\Users\\USER\\Desktop\\flask-templete\\static\\audio\\user_input.wav'
     record_audio_to_file(filename)
