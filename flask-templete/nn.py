@@ -1,129 +1,133 @@
-import os
 import numpy as np
 import librosa
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import confusion_matrix, classification_report
-import seaborn as sns
+import librosa.display
 import matplotlib.pyplot as plt
-from tensorflow.keras.utils import to_categorical
-from tqdm import tqdm
-from tensorflow import keras
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import Dense, Dropout, Flatten, Conv2D, MaxPooling2D
-from tensorflow.keras.models import load_model
+import tensorflow as tf
+from tensorflow.keras import backend as K
+import sounddevice as sd
+import wavio
 
-# 資料路徑
-DATA_PATH = 'C:\\Users\\USER\\Desktop\\flask-templete\\train'
-LABEL = 'A'
-test_audio_path = 'C:\\Users\\USER\\Desktop\\flask-templete\\static\\audio'
-feature_dim_1 = 13  # MFCC features
-feature_dim_2 = 50  # Modify this based on the correct number of timesteps
-channel = 1
-epochs = 2500
-batch_size = 10
-verbose = 1
-num_classes = 1  # 只有一個類別 'A'
+# 設置參數
+n_mfcc = 20
+max_length = 44100
+sample_rate = 44100
+num_classes = 27  # Including the blank label for CTC
 
-def get_labels(path=DATA_PATH):  
-    labels = [LABEL]
-    label_indices = np.arange(0, len(labels))
-    return labels, label_indices, to_categorical(label_indices)  # 回傳['A'] [0] [[1. 0. 0.]]
-
-def cepstral_mean_subtraction(mfccs):
-    mean = np.mean(mfccs, axis=1, keepdims=True)
-    cms_mfccs = mfccs - mean
-    return cms_mfccs
-
-def wav2mfcc(file_path, max_len=50):  # Modify max_len based on the correct number of timesteps
-    wave, sr = librosa.load(file_path, mono=True, sr=44100)
-    mfccs = librosa.feature.mfcc(y=wave, sr=sr, n_mfcc=feature_dim_1)
-    mfcc = cepstral_mean_subtraction(mfccs)
-    if (max_len > mfcc.shape[1]):
-        pad_width = max_len - mfcc.shape[1]
-        mfcc = np.pad(mfcc, pad_width=((0, 0), (0, pad_width)), mode='constant')
+# 加載音檔並轉換為MFCC
+def load_and_convert_to_mfcc(file_path):
+    y, sr = librosa.load(file_path, sr=sample_rate, duration=1.0)
+    mfcc = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=n_mfcc)
+    if mfcc.shape[1] < max_length:
+        mfcc = np.pad(mfcc, ((0, 0), (0, max_length - mfcc.shape[1])), mode='constant')
     else:
-        mfcc = mfcc[:, :max_len]
-    return mfcc
+        mfcc = mfcc[:, :max_length]
+    return mfcc.T
 
-def save_data_to_array(path=DATA_PATH, max_len=50):
-    labels, _, _ = get_labels(path)
-    mfcc_vectors = []
-    wavfiles = [os.path.join(path, wavfile) for wavfile in os.listdir(path)]
-    for wavfile in tqdm(wavfiles, "Saving vectors of label - '{}'".format(LABEL)):
-        mfcc = wav2mfcc(wavfile, max_len=max_len)
-        mfcc_vectors.append(mfcc)
-    np.save(LABEL + '.npy', np.array(mfcc_vectors))
+# 儲存MFCC圖片
+def save_mfcc_image(mfcc, file_path):
+    plt.figure(figsize=(6, 4))
+    librosa.display.specshow(mfcc.T, sr=sample_rate, x_axis='time')
+    plt.colorbar()
+    plt.title('MFCC')
+    plt.tight_layout()
+    plt.savefig(file_path)
+    plt.close()
 
-def get_train_test(split_ratio=0.6, random_state=42):
-    labels, indices, _ = get_labels(DATA_PATH)
-    X = np.load(LABEL + '.npy')
-    y = np.zeros(X.shape[0])
-    return train_test_split(X, y, test_size=(1 - split_ratio), random_state=random_state, shuffle=True)
+# 準備訓練數據
+def prepare_data(file_paths):
+    data = []
+    for file_path in file_paths:
+        mfcc = load_and_convert_to_mfcc(file_path)
+        data.append(mfcc)
+    data = np.array(data)
+    data = data[..., np.newaxis]
+    return data
 
-def get_model():
-    model = Sequential()
-    model.add(Conv2D(32, kernel_size=(2, 2), activation='relu', input_shape=(feature_dim_1, feature_dim_2, channel)))
-    model.add(Conv2D(48, kernel_size=(2, 2), activation='relu'))
-    model.add(Conv2D(120, kernel_size=(2, 2), activation='relu'))
-    model.add(MaxPooling2D(pool_size=(2, 2)))
-    model.add(Dropout(0.25))
-    model.add(Flatten())
-    model.add(Dense(128, activation='relu'))
-    model.add(Dropout(0.25))
-    model.add(Dense(64, activation='relu'))
-    model.add(Dropout(0.4))
-    model.add(Dense(num_classes, activation='sigmoid'))
-    model.compile(loss='binary_crossentropy',
-                  optimizer=keras.optimizers.Adadelta(),
-                  metrics=['accuracy'])
+# 創建模型
+def create_model(input_shape):
+    inp = tf.keras.Input(shape=input_shape)
+    inp_len = tf.keras.Input(shape=(1,), dtype='int32')
+    seq_len = tf.keras.Input(shape=(1,), dtype='int32')
+    
+    x = tf.keras.layers.Conv2D(filters=32, kernel_size=(3, 3), padding='same', activation='relu')(inp)
+    x = tf.keras.layers.BatchNormalization()(x)
+    x = tf.keras.layers.MaxPooling2D(pool_size=(2, 2))(x)
+    x = tf.keras.layers.Conv2D(filters=64, kernel_size=(3, 3), padding='same', activation='relu')(x)
+    x = tf.keras.layers.BatchNormalization()(x)
+    x = tf.keras.layers.MaxPooling2D(pool_size=(2, 2))(x)
+    
+    x = tf.keras.layers.Reshape((-1, x.shape[-1] * x.shape[-2]))(x)  # Flatten the output to (time, features)
+    x = tf.keras.layers.Bidirectional(tf.keras.layers.GRU(128, return_sequences=True))(x)
+    x = tf.keras.layers.Dropout(0.2)(x)
+    x = tf.keras.layers.BatchNormalization()(x)
+    x = tf.keras.layers.TimeDistributed(tf.keras.layers.Dense(num_classes, activation='softmax'))(x)
+    
+    model = tf.keras.models.Model(inputs=[inp, inp_len, seq_len], outputs=x)
     return model
 
-def predict(filepath, model):
-    sample = wav2mfcc(filepath)
-    sample_reshaped = sample.reshape(1, feature_dim_1, feature_dim_2, channel)
-    prediction = model.predict(sample_reshaped)
-    accuracy = prediction[0][0]
-    return get_labels()[0][0], accuracy
+# 定義CTC損失函數
+def ctc_loss(y_true, y_pred):
+    label_length = tf.math.count_nonzero(y_true, axis=-1, keepdims=True, dtype='int32')
+    input_length = tf.fill([tf.shape(y_pred)[0], 1], tf.shape(y_pred)[1])
+    loss = K.ctc_batch_cost(y_true, y_pred, input_length, label_length)
+    return loss
+
+# 訓練模型
+def train_model(model, train_data, train_labels, train_inp_lengths, train_seq_lengths):
+    model.compile(loss=ctc_loss, optimizer='Adam')
+    model.fit([train_data, train_inp_lengths, train_seq_lengths], train_labels, batch_size=8, epochs=20)
+
+# 錄製音頻
+def record_audio(file_path, duration=1.0, fs=44100):
+    print("Recording...")
+    recording = sd.rec(int(duration * fs), samplerate=fs, channels=1)
+    sd.wait()
+    wavio.write(file_path, recording, fs, sampwidth=2)
+    print("Recording finished.")
 
 # 主程式
-def main():
-    save_data_to_array(max_len=feature_dim_2)
-
-    X_train, X_test, y_train, y_test = get_train_test()
-
-    X_train = X_train.reshape(X_train.shape[0], feature_dim_1, feature_dim_2, channel)
-    X_test = X_test.reshape(X_test.shape[0], feature_dim_1, feature_dim_2, channel)
-
-    y_train_hot = to_categorical(y_train)
-    y_test_hot = to_categorical(y_test)
-
-    model = get_model()
-    history = model.fit(X_train, y_train_hot, batch_size=batch_size, epochs=epochs, verbose=verbose, validation_data=(X_test, y_test_hot))
-    model.save('MFCC.h5')
-    model2 = load_model('MFCC.h5')
-    
-    # 查看訓練結果
-    print("Training Accuracy: ", history.history['accuracy'][-1])
-    print("Validation Accuracy: ", history.history['val_accuracy'][-1])
-    print("Training Loss: ", history.history['loss'][-1])
-    print("Validation Loss: ", history.history['val_loss'][-1])
-    
-    # 混淆矩陣
-    y_pred = model2.predict(X_test)
-    y_pred_classes = (y_pred > 0.5).astype(int).reshape(-1)
-    y_true = y_test.astype(int)
-    
-    conf_matrix = confusion_matrix(y_true, y_pred_classes)
-    sns.heatmap(conf_matrix, annot=True, fmt='d')
-    plt.xlabel('Predicted')
-    plt.ylabel('True')
-    plt.show()
-    
-    # 顯示分類報告
-    print(classification_report(y_true, y_pred_classes))
-    
-    predicted_label, accuracy = predict('C:\\Users\\USER\\Desktop\\flask-templete\\static\\audio\\B.wav', model=model2)
-    print(f"Predicted label: {predicted_label}, Accuracy: {accuracy:.2f}")
-
 if __name__ == "__main__":
-    main()
+    # 輸入音檔路徑
+    file_paths = ["C:\\Users\\USER\\Desktop\\flask-templete\\train\\A1.wav", "C:\\Users\\USER\\Desktop\\flask-templete\\train\\A2.wav", "C:\\Users\\USER\\Desktop\\flask-templete\\train\\A3.wav", "C:\\Users\\USER\\Desktop\\flask-templete\\train\\A4.wav", "C:\\Users\\USER\\Desktop\\flask-templete\\train\\A5.wav",
+                  "C:\\Users\\USER\\Desktop\\flask-templete\\train\\A6.wav", "C:\\Users\\USER\\Desktop\\flask-templete\\train\\A7.wav", "C:\\Users\\USER\\Desktop\\flask-templete\\train\\A8.wav", "C:\\Users\\USER\\Desktop\\flask-templete\\train\\A9.wav", "C:\\Users\\USER\\Desktop\\flask-templete\\train\\A10.wav"]
+    
+    # 準備訓練數據
+    train_data = prepare_data(file_paths)
+
+    # 生成隨機標籤，確保標籤數據中不包含非法值
+    train_labels = np.random.randint(1, num_classes - 1, (10, 10))  # 使用1到num_classes-2之間的值
+    train_labels[:, -1] = 0  # 確保最後一個標籤是空白標籤
+
+    train_inp_lengths = np.full((10, 1), max_length)
+    train_seq_lengths = np.full((10, 1), 10)
+
+    # 創建模型
+    input_shape = (max_length, n_mfcc, 1)
+    model = create_model(input_shape)
+
+    # 訓練模型
+    train_model(model, train_data, train_labels, train_inp_lengths, train_seq_lengths)
+    
+    # 錄製並轉換音頻
+    record_file = "C:\\Users\\USER\\Desktop\\flask-templete\\static\\audio\\user_input.wav"
+    record_audio(record_file)
+    recorded_mfcc = load_and_convert_to_mfcc(record_file)
+    save_mfcc_image(recorded_mfcc, "user_input.png")
+    
+    # 預測並比對結果
+    recorded_mfcc = recorded_mfcc[np.newaxis, ..., np.newaxis]
+    predictions = model.predict([recorded_mfcc, np.array([[max_length]]), np.array([[10]])])
+
+    # 解码预测结果
+    decoded_pred = K.ctc_decode(predictions, input_length=np.array([[max_length]]))[0][0]
+    dense_pred = tf.sparse.to_dense(decoded_pred).numpy()
+
+    # 假设你有一个实际标签 true_labels
+    true_labels = np.array([1, 2, 3, 4, 5, 0])  # 示例标签
+
+    # 计算匹配百分比
+    pred_text = dense_pred[0]
+    match_count = sum(1 for p, t in zip(pred_text, true_labels) if p == t)
+    accuracy = (match_count / len(true_labels)) * 100
+
+    print(f"Prediction Accuracy: {accuracy:.2f}%")

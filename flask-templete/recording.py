@@ -2,7 +2,7 @@ import os
 import pyaudio
 import librosa
 import wave
-def record_audio_to_file(filename, duration=3, channels=1, rate=44100, frames_per_buffer=1):
+def record_audio_to_file(filename, duration=1, channels=1, rate=44100, frames_per_buffer=1):
     """Record user's input audio and save it to the specified file."""
     FORMAT = pyaudio.paInt16
     p = pyaudio.PyAudio()
