@@ -1,133 +1,168 @@
-import numpy as np
+import os
 import librosa
-import librosa.display
+import numpy as np
 import matplotlib.pyplot as plt
 import tensorflow as tf
-from tensorflow.keras import backend as K
-import sounddevice as sd
-import wavio
+from tensorflow.keras.preprocessing.image import ImageDataGenerator, img_to_array, load_img
+from tensorflow.keras.models import Sequential, Model, load_model
+from tensorflow.keras.layers import Conv2D, MaxPooling2D, Flatten, Dense, Dropout, GlobalAveragePooling2D
+from tensorflow.keras.optimizers import Adam
+from tensorflow.keras.applications import MobileNetV2
+import logging
 
-# 設置參數
-n_mfcc = 20
-max_length = 44100
-sample_rate = 44100
-num_classes = 27  # Including the blank label for CTC
+logging.basicConfig(level=logging.INFO)
 
-# 加載音檔並轉換為MFCC
-def load_and_convert_to_mfcc(file_path):
-    y, sr = librosa.load(file_path, sr=sample_rate, duration=1.0)
+def audio_to_mfcc(audio_path, sr=44100, n_mfcc=13):
+    y, sr = librosa.load(audio_path, sr=sr)
     mfcc = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=n_mfcc)
-    if mfcc.shape[1] < max_length:
-        mfcc = np.pad(mfcc, ((0, 0), (0, max_length - mfcc.shape[1])), mode='constant')
-    else:
-        mfcc = mfcc[:, :max_length]
-    return mfcc.T
+    return mfcc
 
-# 儲存MFCC圖片
-def save_mfcc_image(mfcc, file_path):
-    plt.figure(figsize=(6, 4))
-    librosa.display.specshow(mfcc.T, sr=sample_rate, x_axis='time')
+def save_mfcc_image(mfcc, output_path):
+    plt.figure(figsize=(10, 4))
+    librosa.display.specshow(mfcc, x_axis='time')
     plt.colorbar()
-    plt.title('MFCC')
     plt.tight_layout()
-    plt.savefig(file_path)
+    plt.savefig(output_path)
     plt.close()
-
-# 準備訓練數據
-def prepare_data(file_paths):
-    data = []
-    for file_path in file_paths:
-        mfcc = load_and_convert_to_mfcc(file_path)
-        data.append(mfcc)
-    data = np.array(data)
-    data = data[..., np.newaxis]
-    return data
-
-# 創建模型
-def create_model(input_shape):
-    inp = tf.keras.Input(shape=input_shape)
-    inp_len = tf.keras.Input(shape=(1,), dtype='int32')
-    seq_len = tf.keras.Input(shape=(1,), dtype='int32')
+def process_audio_files(input_dir, output_dir):
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
     
-    x = tf.keras.layers.Conv2D(filters=32, kernel_size=(3, 3), padding='same', activation='relu')(inp)
-    x = tf.keras.layers.BatchNormalization()(x)
-    x = tf.keras.layers.MaxPooling2D(pool_size=(2, 2))(x)
-    x = tf.keras.layers.Conv2D(filters=64, kernel_size=(3, 3), padding='same', activation='relu')(x)
-    x = tf.keras.layers.BatchNormalization()(x)
-    x = tf.keras.layers.MaxPooling2D(pool_size=(2, 2))(x)
+    for audio_file in os.listdir(input_dir):
+        if audio_file.endswith('.wav'):
+            audio_path = os.path.join(input_dir, audio_file)
+            mfcc = audio_to_mfcc(audio_path)
+            output_path = os.path.join(output_dir, f"{os.path.splitext(audio_file)[0]}.png")
+            save_mfcc_image(mfcc, output_path)
+            logging.info(f"Processed {audio_file} to {output_path}")
+def create_model():
+    base_model = MobileNetV2(weights='imagenet', include_top=False, input_shape=(128, 128, 3))
+    x = base_model.output
+    x = GlobalAveragePooling2D()(x)
+    x = Dense(64, activation='relu')(x)
+    x = Dropout(0.5)(x)
+    output = Dense(1, activation='sigmoid')(x)
+    model = Model(inputs=base_model.input, outputs=output)
     
-    x = tf.keras.layers.Reshape((-1, x.shape[-1] * x.shape[-2]))(x)  # Flatten the output to (time, features)
-    x = tf.keras.layers.Bidirectional(tf.keras.layers.GRU(128, return_sequences=True))(x)
-    x = tf.keras.layers.Dropout(0.2)(x)
-    x = tf.keras.layers.BatchNormalization()(x)
-    x = tf.keras.layers.TimeDistributed(tf.keras.layers.Dense(num_classes, activation='softmax'))(x)
+    for layer in base_model.layers:
+        layer.trainable = False
     
-    model = tf.keras.models.Model(inputs=[inp, inp_len, seq_len], outputs=x)
+    model.compile(optimizer=Adam(learning_rate=0.0001), loss='binary_crossentropy', metrics=['accuracy'])
     return model
 
-# 定義CTC損失函數
-def ctc_loss(y_true, y_pred):
-    label_length = tf.math.count_nonzero(y_true, axis=-1, keepdims=True, dtype='int32')
-    input_length = tf.fill([tf.shape(y_pred)[0], 1], tf.shape(y_pred)[1])
-    loss = K.ctc_batch_cost(y_true, y_pred, input_length, label_length)
-    return loss
+def train_model(train_dir, model_path='audio_cnn_model.h5', epochs=50, batch_size=32):
+    train_datagen = ImageDataGenerator(
+        rescale=1./255,
+        rotation_range=10,
+        width_shift_range=0.1,
+        height_shift_range=0.1,
+        zoom_range=0.1,
+        horizontal_flip=True,
+        validation_split=0.2
+    )
+    
+    train_generator = train_datagen.flow_from_directory(
+        train_dir,
+        target_size=(128, 128),
+        batch_size=batch_size,
+        class_mode='binary',
+        subset='training'
+    )
+    
+    validation_generator = train_datagen.flow_from_directory(
+        train_dir,
+        target_size=(128, 128),
+        batch_size=batch_size,
+        class_mode='binary',
+        subset='validation'
+    )
 
-# 訓練模型
-def train_model(model, train_data, train_labels, train_inp_lengths, train_seq_lengths):
-    model.compile(loss=ctc_loss, optimizer='Adam')
-    model.fit([train_data, train_inp_lengths, train_seq_lengths], train_labels, batch_size=8, epochs=20)
+    model = create_model()
+    
+    history = model.fit(
+        train_generator,
+        epochs=epochs,
+        validation_data=validation_generator
+    )
 
-# 錄製音頻
-def record_audio(file_path, duration=1.0, fs=44100):
-    print("Recording...")
-    recording = sd.rec(int(duration * fs), samplerate=fs, channels=1)
-    sd.wait()
-    wavio.write(file_path, recording, fs, sampwidth=2)
-    print("Recording finished.")
+    model.save(model_path)
+    logging.info(f"Model saved to {model_path}")
+    return history
 
-# 主程式
+def process_test_audio(audio_path, model_path='audio_cnn_model.h5'):
+    temp_image_path = 'temp_mfcc.png'
+    
+    mfcc = audio_to_mfcc(audio_path)
+    save_mfcc_image(mfcc, temp_image_path)
+    
+    model = load_model(model_path)
+    
+    img = load_img(temp_image_path, target_size=(128, 128))
+    img_array = img_to_array(img)
+    img_array = np.expand_dims(img_array, axis=0)
+    img_array /= 255.0
+    
+    prediction = model.predict(img_array)
+    
+    os.remove(temp_image_path)
+    
+    return prediction[0][0]
+
+def main():
+    #音訊轉MFCC圖片
+    input_dir = r"D:\wsad231466\Alcoho.github.io\flask-templete\train"
+    output_dir = r"D:\wsad231466\Alcoho.github.io\flask-templete\mfcc_images"
+    
+    process_audio_files(input_dir, output_dir)
+
+    # 訓練階段
+
+    mfcc_images_dir = r"D:\wsad231466\Alcoho.github.io\flask-templete\mfcc_images"
+    
+    if not os.path.exists(mfcc_images_dir):
+        logging.error(f"Directory not found: {mfcc_images_dir}")
+        return
+
+    image_files = [f for f in os.listdir(mfcc_images_dir) if f.endswith('.png')]
+    logging.info(f"Found {len(image_files)} images")
+
+    class_dir = os.path.join(mfcc_images_dir, 'class')
+    if not os.path.exists(class_dir):
+        os.makedirs(class_dir)
+
+    for image_file in image_files:
+        src = os.path.join(mfcc_images_dir, image_file)
+        dst = os.path.join(class_dir, image_file)
+        if not os.path.exists(dst):
+            os.rename(src, dst)
+
+    try:
+        history = train_model(mfcc_images_dir, epochs=20, batch_size=262144)
+        logging.info("Training completed successfully")
+    except Exception as e:
+        logging.error(f"An error occurred during training: {str(e)}")
+        return
+
+    test_audio_path = r"D:\wsad231466\Alcoho.github.io\flask-templete\static\audio\user_input.wav"
+    model_path = 'audio_cnn_model.h5'
+
+    try:
+        result = process_test_audio(test_audio_path, model_path)
+        logging.info(f"Test audio raw prediction: {result}")
+        logging.info(f"Test audio prediction result: {result * 100:.2f}%")
+        
+        # 添加以下代码来查看模型对训练集的预测
+        model = load_model(model_path)
+        train_generator = ImageDataGenerator(rescale=1./255).flow_from_directory(
+            mfcc_images_dir,
+            target_size=(128, 128),
+            batch_size=32,
+            class_mode='binary'
+        )
+        train_predictions = model.predict(train_generator)
+        logging.info(f"Training set predictions: Min={np.min(train_predictions):.4f}, Max={np.max(train_predictions):.4f}, Mean={np.mean(train_predictions):.4f}")
+    except Exception as e:
+        logging.error(f"An error occurred during prediction for test audio: {str(e)}")
+        logging.error(f"Detailed error information:\n{traceback.format_exc()}")
 if __name__ == "__main__":
-    # 輸入音檔路徑
-    file_paths = ["C:\\Users\\USER\\Desktop\\flask-templete\\train\\A1.wav", "C:\\Users\\USER\\Desktop\\flask-templete\\train\\A2.wav", "C:\\Users\\USER\\Desktop\\flask-templete\\train\\A3.wav", "C:\\Users\\USER\\Desktop\\flask-templete\\train\\A4.wav", "C:\\Users\\USER\\Desktop\\flask-templete\\train\\A5.wav",
-                  "C:\\Users\\USER\\Desktop\\flask-templete\\train\\A6.wav", "C:\\Users\\USER\\Desktop\\flask-templete\\train\\A7.wav", "C:\\Users\\USER\\Desktop\\flask-templete\\train\\A8.wav", "C:\\Users\\USER\\Desktop\\flask-templete\\train\\A9.wav", "C:\\Users\\USER\\Desktop\\flask-templete\\train\\A10.wav"]
-    
-    # 準備訓練數據
-    train_data = prepare_data(file_paths)
-
-    # 生成隨機標籤，確保標籤數據中不包含非法值
-    train_labels = np.random.randint(1, num_classes - 1, (10, 10))  # 使用1到num_classes-2之間的值
-    train_labels[:, -1] = 0  # 確保最後一個標籤是空白標籤
-
-    train_inp_lengths = np.full((10, 1), max_length)
-    train_seq_lengths = np.full((10, 1), 10)
-
-    # 創建模型
-    input_shape = (max_length, n_mfcc, 1)
-    model = create_model(input_shape)
-
-    # 訓練模型
-    train_model(model, train_data, train_labels, train_inp_lengths, train_seq_lengths)
-    
-    # 錄製並轉換音頻
-    record_file = "C:\\Users\\USER\\Desktop\\flask-templete\\static\\audio\\user_input.wav"
-    record_audio(record_file)
-    recorded_mfcc = load_and_convert_to_mfcc(record_file)
-    save_mfcc_image(recorded_mfcc, "user_input.png")
-    
-    # 預測並比對結果
-    recorded_mfcc = recorded_mfcc[np.newaxis, ..., np.newaxis]
-    predictions = model.predict([recorded_mfcc, np.array([[max_length]]), np.array([[10]])])
-
-    # 解码预测结果
-    decoded_pred = K.ctc_decode(predictions, input_length=np.array([[max_length]]))[0][0]
-    dense_pred = tf.sparse.to_dense(decoded_pred).numpy()
-
-    # 假设你有一个实际标签 true_labels
-    true_labels = np.array([1, 2, 3, 4, 5, 0])  # 示例标签
-
-    # 计算匹配百分比
-    pred_text = dense_pred[0]
-    match_count = sum(1 for p, t in zip(pred_text, true_labels) if p == t)
-    accuracy = (match_count / len(true_labels)) * 100
-
-    print(f"Prediction Accuracy: {accuracy:.2f}%")
+    main()
