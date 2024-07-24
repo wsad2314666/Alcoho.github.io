@@ -137,7 +137,7 @@ def main():
             os.rename(src, dst)
 
     try:
-        history = train_model(mfcc_images_dir, epochs=20, batch_size=262144)
+        history = train_model(mfcc_images_dir, epochs=30, batch_size=262144)
         logging.info("Training completed successfully")
     except Exception as e:
         logging.error(f"An error occurred during training: {str(e)}")
