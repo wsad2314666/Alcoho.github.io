@@ -1,168 +1,156 @@
 import os
 import librosa
 import numpy as np
-import matplotlib.pyplot as plt
 import tensorflow as tf
-from tensorflow.keras.preprocessing.image import ImageDataGenerator, img_to_array, load_img
-from tensorflow.keras.models import Sequential, Model, load_model
-from tensorflow.keras.layers import Conv2D, MaxPooling2D, Flatten, Dense, Dropout, GlobalAveragePooling2D
-from tensorflow.keras.optimizers import Adam
-from tensorflow.keras.applications import MobileNetV2
-import logging
+from tensorflow.keras import layers
+from tensorflow.keras.preprocessing.sequence import pad_sequences
 
-logging.basicConfig(level=logging.INFO)
+def extract_and_normalize_features(file_path):
+    y, sr = librosa.load(file_path, sr=44100)
+    melspectrogram = librosa.feature.melspectrogram(y=y, sr=sr, n_mels=128)
+    cmvn = (melspectrogram - np.mean(melspectrogram, axis=1, keepdims=True)) / (np.std(melspectrogram, axis=1, keepdims=True) + 1e-6)
+    return cmvn.T
 
-def audio_to_mfcc(audio_path, sr=44100, n_mfcc=13):
-    y, sr = librosa.load(audio_path, sr=sr)
-    mfcc = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=n_mfcc)
-    return mfcc
-
-def save_mfcc_image(mfcc, output_path):
-    plt.figure(figsize=(10, 4))
-    librosa.display.specshow(mfcc, x_axis='time')
-    plt.colorbar()
-    plt.tight_layout()
-    plt.savefig(output_path)
-    plt.close()
-def process_audio_files(input_dir, output_dir):
-    if not os.path.exists(output_dir):
-        os.makedirs(output_dir)
+def create_transformer_model(input_shape, vocab_size):
+    input_data = layers.Input(name='input', shape=input_shape, dtype='float32')
+    x = layers.Masking(mask_value=0.0)(input_data)
+    x = layers.Conv1D(64, 3, padding='same', activation='relu')(x)
+    x = layers.BatchNormalization()(x)
+    x = layers.Conv1D(128, 3, padding='same', activation='relu')(x)
+    x = layers.BatchNormalization()(x)
+    transformer_block = layers.MultiHeadAttention(num_heads=8, key_dim=128)(x, x)
+    transformer_block = layers.LayerNormalization(epsilon=1e-6)(transformer_block)
+    transformer_block = layers.Dense(256, activation='relu')(transformer_block)
+    transformer_block = layers.Dropout(0.2)(transformer_block)
+    transformer_block = layers.Dense(vocab_size + 1, activation='softmax')(transformer_block)
     
-    for audio_file in os.listdir(input_dir):
-        if audio_file.endswith('.wav'):
-            audio_path = os.path.join(input_dir, audio_file)
-            mfcc = audio_to_mfcc(audio_path)
-            output_path = os.path.join(output_dir, f"{os.path.splitext(audio_file)[0]}.png")
-            save_mfcc_image(mfcc, output_path)
-            logging.info(f"Processed {audio_file} to {output_path}")
-def create_model():
-    base_model = MobileNetV2(weights='imagenet', include_top=False, input_shape=(128, 128, 3))
-    x = base_model.output
-    x = GlobalAveragePooling2D()(x)
-    x = Dense(64, activation='relu')(x)
-    x = Dropout(0.5)(x)
-    output = Dense(1, activation='sigmoid')(x)
-    model = Model(inputs=base_model.input, outputs=output)
-    
-    for layer in base_model.layers:
-        layer.trainable = False
-    
-    model.compile(optimizer=Adam(learning_rate=0.0001), loss='binary_crossentropy', metrics=['accuracy'])
+    model = tf.keras.Model(inputs=input_data, outputs=transformer_block)
     return model
 
-def train_model(train_dir, model_path='audio_cnn_model.h5', epochs=50, batch_size=32):
-    train_datagen = ImageDataGenerator(
-        rescale=1./255,
-        rotation_range=10,
-        width_shift_range=0.1,
-        height_shift_range=0.1,
-        zoom_range=0.1,
-        horizontal_flip=True,
-        validation_split=0.2
-    )
+def data_generator(audio_files, transcripts, batch_size):
+    max_length = 0
+    for file in audio_files:
+        features = extract_and_normalize_features(file)
+        max_length = max(max_length, features.shape[0])
     
-    train_generator = train_datagen.flow_from_directory(
-        train_dir,
-        target_size=(128, 128),
-        batch_size=batch_size,
-        class_mode='binary',
-        subset='training'
-    )
-    
-    validation_generator = train_datagen.flow_from_directory(
-        train_dir,
-        target_size=(128, 128),
-        batch_size=batch_size,
-        class_mode='binary',
-        subset='validation'
-    )
+    print(f"最大长度: {max_length}")
 
-    model = create_model()
+    while True:
+        x_batch = []
+        y_batch = []
+        for start in range(0, len(audio_files), batch_size):
+            batch_files = audio_files[start:start+batch_size]
+            batch_transcripts = transcripts[start:start+batch_size]
+            for file, transcript in zip(batch_files, batch_transcripts):
+                features = extract_and_normalize_features(file)
+                padded_features = np.pad(features, ((0, max_length - features.shape[0]), (0, 0)), mode='constant')
+                x_batch.append(padded_features)
+                y_batch.append([1] * features.shape[0] + [0] * (max_length - features.shape[0]))
+            
+            print(f"批次形状: x={np.array(x_batch).shape}, y={np.array(y_batch).shape}")
+            yield np.array(x_batch), np.array(y_batch)
+            x_batch.clear()
+            y_batch.clear()
+
+def calculate_wer(true_transcript, pred_transcript):
+    true_words = true_transcript.split()
+    pred_words = pred_transcript.split()
+    S = sum(1 for true_word, pred_word in zip(true_words, pred_words) if true_word != pred_word)
+    D = len(true_words) - len(pred_words)
+    I = len(pred_words) - len(true_words)
+    return (S + max(D, 0) + max(I, 0)) / len(true_words)
+
+def evaluate_model(model, history, test_files, test_transcripts, max_length, predictions):
+    # 评估模型在训练数据上的性能
+    train_loss = history.history['loss'][-1]
+    print(f"Training loss: {train_loss}")
+
+    # 评估模型在测试数据上的性能
+    total_wer = 0
+    for true_transcript, pred_transcript in zip(test_transcripts, predictions):
+        print(f"True transcript: {true_transcript}")
+        print(f"Predicted transcript: {pred_transcript}")
+        
+        # 计算 WER
+        wer = calculate_wer(true_transcript, pred_transcript)
+        print(f"Word Error Rate: {wer}")
+        
+        total_wer += wer
     
-    history = model.fit(
-        train_generator,
-        epochs=epochs,
-        validation_data=validation_generator
+    avg_wer = total_wer / len(test_files)
+    print(f"Average Word Error Rate: {avg_wer}")
+    
+    return train_loss, avg_wer
+
+
+def ctc_loss_function(y_true, y_pred):
+    y_true = tf.cast(y_true, 'int32')
+    input_length = tf.fill([tf.shape(y_pred)[0]], tf.shape(y_pred)[1])
+    label_length = tf.reduce_sum(tf.cast(y_true != 0, 'int32'), axis=-1)
+    loss = tf.nn.ctc_loss(
+        labels=y_true,
+        logits=y_pred,
+        label_length=label_length,
+        logit_length=input_length,
+        logits_time_major=False,
+        blank_index=0
     )
-
-    model.save(model_path)
-    logging.info(f"Model saved to {model_path}")
-    return history
-
-def process_test_audio(audio_path, model_path='audio_cnn_model.h5'):
-    temp_image_path = 'temp_mfcc.png'
-    
-    mfcc = audio_to_mfcc(audio_path)
-    save_mfcc_image(mfcc, temp_image_path)
-    
-    model = load_model(model_path)
-    
-    img = load_img(temp_image_path, target_size=(128, 128))
-    img_array = img_to_array(img)
-    img_array = np.expand_dims(img_array, axis=0)
-    img_array /= 255.0
-    
-    prediction = model.predict(img_array)
-    
-    os.remove(temp_image_path)
-    
-    return prediction[0][0]
+    return tf.reduce_mean(loss)
 
 def main():
-    #音訊轉MFCC圖片
-    input_dir = r"D:\wsad231466\Alcoho.github.io\flask-templete\train"
-    output_dir = r"D:\wsad231466\Alcoho.github.io\flask-templete\mfcc_images"
+    base_path = "D:\\wsad231466\\Alcoho.github.io\\flask-templete\\train\\"
+    audio_files = [os.path.join(base_path, f"A{i}.wav") for i in range(1, 54)]  # 生成A1到A53的音檔路徑
+    test_files = ["D:\\wsad231466\\Alcoho.github.io\\flask-templete\\static\\audio\\user_input.wav"]
+    transcripts = ["A"] * len(audio_files)
     
-    process_audio_files(input_dir, output_dir)
-
-    # 訓練階段
-
-    mfcc_images_dir = r"D:\wsad231466\Alcoho.github.io\flask-templete\mfcc_images"
+    print(f"音频文件数量: {len(audio_files)}")
     
-    if not os.path.exists(mfcc_images_dir):
-        logging.error(f"Directory not found: {mfcc_images_dir}")
-        return
+    # 获取最大长度
+    max_length = 0
+    for file in audio_files + test_files:
+        features = extract_and_normalize_features(file)
+        max_length = max(max_length, features.shape[0])
+    
+    print(f"最大长度: {max_length}")
+    
+    # 设置输入形状和词汇表大小
+    input_shape = (max_length, 128)  # 根据Mel频谱图特征数量设置
+    vocab_size = 1  # 因为我们只有一个标签"A"
+    
+    model = create_transformer_model(input_shape, vocab_size)
+    model.compile(optimizer='adam', loss=ctc_loss_function)
 
-    image_files = [f for f in os.listdir(mfcc_images_dir) if f.endswith('.png')]
-    logging.info(f"Found {len(image_files)} images")
+    batch_size = 16
+    steps_per_epoch = len(audio_files) // batch_size
 
-    class_dir = os.path.join(mfcc_images_dir, 'class')
-    if not os.path.exists(class_dir):
-        os.makedirs(class_dir)
+    print(f"每轮步数: {steps_per_epoch}")
 
-    for image_file in image_files:
-        src = os.path.join(mfcc_images_dir, image_file)
-        dst = os.path.join(class_dir, image_file)
-        if not os.path.exists(dst):
-            os.rename(src, dst)
+    # 保存预测结果
+    predictions = []
 
-    try:
-        history = train_model(mfcc_images_dir, epochs=30, batch_size=262144)
-        logging.info("Training completed successfully")
-    except Exception as e:
-        logging.error(f"An error occurred during training: {str(e)}")
-        return
-
-    test_audio_path = r"D:\wsad231466\Alcoho.github.io\flask-templete\static\audio\user_input.wav"
-    model_path = 'audio_cnn_model.h5'
-
-    try:
-        result = process_test_audio(test_audio_path, model_path)
-        logging.info(f"Test audio raw prediction: {result}")
-        logging.info(f"Test audio prediction result: {result * 100:.2f}%")
+    for epoch in range(20):
+        history = model.fit(data_generator(audio_files, transcripts, batch_size), 
+                            steps_per_epoch=steps_per_epoch, 
+                            epochs=1,
+                            verbose=1)
         
-        # 添加以下代码来查看模型对训练集的预测
-        model = load_model(model_path)
-        train_generator = ImageDataGenerator(rescale=1./255).flow_from_directory(
-            mfcc_images_dir,
-            target_size=(128, 128),
-            batch_size=32,
-            class_mode='binary'
-        )
-        train_predictions = model.predict(train_generator)
-        logging.info(f"Training set predictions: Min={np.min(train_predictions):.4f}, Max={np.max(train_predictions):.4f}, Mean={np.mean(train_predictions):.4f}")
-    except Exception as e:
-        logging.error(f"An error occurred during prediction for test audio: {str(e)}")
-        logging.error(f"Detailed error information:\n{traceback.format_exc()}")
+        # 保存每个epoch的预测结果
+        for file in test_files:
+            features = extract_and_normalize_features(file)
+            padded_features = np.pad(features, ((0, max_length - features.shape[0]), (0, 0)), mode='constant')
+            pred_prob = model.predict(np.expand_dims(padded_features, axis=0), verbose=0)
+            pred_sequence = np.argmax(pred_prob, axis=-1)
+            pred_transcript = "".join(["A" if p == 1 else "" for p in pred_sequence[0]])
+            predictions.append(pred_transcript)
+
+    print("训练历史:")
+    print(history.history)
+
+    train_loss, avg_wer = evaluate_model(model, history, test_files, ["A"], max_length, predictions)
+    wcr = 1 - avg_wer
+    print(f'Training loss: {train_loss}')
+    print(f'Average Word Error Rate: {avg_wer}')
+    print(f'Word Correct Rate: {wcr * 100:.2f}%')
+
 if __name__ == "__main__":
     main()
