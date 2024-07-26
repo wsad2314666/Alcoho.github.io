@@ -121,14 +121,14 @@ def process_test_audio(audio_path, model_path='ResNet50.keras'):
 
 def main():
     #音訊轉MFCC圖片
-    input_dir = r"D:\wsad231466\Alcoho.github.io\flask-templete\train"
-    output_dir = r"D:\wsad231466\Alcoho.github.io\flask-templete\mfcc_images"
+    input_dir = r"C:\Users\USER\Desktop\flask-templete\train"
+    output_dir = r"C:\Users\USER\Desktop\flask-templete\mfcc_images"
     
     process_audio_files(input_dir, output_dir)
 
     # 訓練階段
 
-    mfcc_images_dir = r"D:\wsad231466\Alcoho.github.io\flask-templete\mfcc_images"
+    mfcc_images_dir = r"C:\Users\USER\Desktop\flask-templete\mfcc_images"
     
     if not os.path.exists(mfcc_images_dir):
         logging.error(f"Directory not found: {mfcc_images_dir}")
@@ -154,7 +154,7 @@ def main():
         logging.error(f"An error occurred during training: {str(e)}")
         return
 
-    test_audio_path = r"D:\wsad231466\Alcoho.github.io\flask-templete\static\audio\user_input.wav"
+    test_audio_path = r"C:\Users\USER\Desktop\flask-templete\static\audio\user_input.wav"
     model_path = 'ResNet50.keras'
 
     try:

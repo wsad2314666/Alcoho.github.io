@@ -54,7 +54,7 @@ def create_model():
     model.compile(optimizer=Adam(learning_rate=0.0001), loss='binary_crossentropy', metrics=['accuracy'])
     return model
 
-def train_model(train_dir, model_path='ResNet50.keras', epochs=None, batch_size=None):
+def train_model(train_dir, model_path='cnn.keras', epochs=None, batch_size=None):
     train_datagen = ImageDataGenerator(
         rescale=1./255,
         validation_split=0.2,
@@ -101,7 +101,7 @@ def train_model(train_dir, model_path='ResNet50.keras', epochs=None, batch_size=
     logging.info(f"Model saved to {model_path}")
     return history
 
-def process_test_audio(audio_path, model_path='ResNet50.keras'):
+def process_test_audio(audio_path, model_path='cnn.keras'):
     temp_image_path = 'temp_mfcc.png'
     
     mfcc = audio_to_mfcc(audio_path)
@@ -122,14 +122,14 @@ def process_test_audio(audio_path, model_path='ResNet50.keras'):
 
 def main():
     #音訊轉MFCC圖片
-    input_dir = r"D:\wsad231466\Alcoho.github.io\flask-templete\train"
-    output_dir = r"D:\wsad231466\Alcoho.github.io\flask-templete\mfcc_images"
+    input_dir = r"C:\Users\USER\Desktop\flask-templete\train"
+    output_dir = r"C:\Users\USER\Desktop\flask-templete\cnn_mfcc_images"
     
     process_audio_files(input_dir, output_dir)
 
     # 訓練階段
 
-    mfcc_images_dir = r"D:\wsad231466\Alcoho.github.io\flask-templete\mfcc_images"
+    mfcc_images_dir = output_dir
     
     if not os.path.exists(mfcc_images_dir):
         logging.error(f"Directory not found: {mfcc_images_dir}")
@@ -155,8 +155,8 @@ def main():
         logging.error(f"An error occurred during training: {str(e)}")
         return
 
-    test_audio_path = r"D:\wsad231466\Alcoho.github.io\flask-templete\static\audio\user_input.wav"
-    model_path = 'ResNet50.keras'
+    test_audio_path = r"C:\Users\USER\Desktop\flask-templete\static\audio\user_input.wav"
+    model_path = 'cnn.keras'
 
     try:
         result = process_test_audio(test_audio_path, model_path)
