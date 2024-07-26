@@ -12,17 +12,18 @@ import logging
 
 logging.basicConfig(level=logging.INFO)
 
-def audio_to_mfcc(audio_path, sr=44100, n_mfcc=13):
+def audio_to_mfcc(audio_path, sr=44100):
     y, sr = librosa.load(audio_path, sr=sr)
-    mfcc = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=n_mfcc)
+    mfcc = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=20)
+    #mfcc=librosa.feature.melspectrogram(y=y, sr=sr, n_mels=128)    
     return mfcc
 
 def save_mfcc_image(mfcc, output_path):
     plt.figure(figsize=(10, 4))
-    librosa.display.specshow(mfcc, x_axis='time')
-    plt.colorbar()
-    plt.tight_layout()
-    plt.savefig(output_path)
+    librosa.display.specshow(mfcc, x_axis=None, y_axis=None) # 移除座標
+    plt.axis('off')  # 移除座標軸
+    plt.gca().set_position([0, 0, 1, 1])  # 擴展圖片填滿整個畫布
+    plt.savefig(output_path, bbox_inches='tight', pad_inches=0)
     plt.close()
 
 def process_audio_files(input_dir, output_dir):

@@ -7,8 +7,8 @@ from tensorflow.keras.preprocessing.sequence import pad_sequences
 
 def extract_and_normalize_features(file_path):
     y, sr = librosa.load(file_path, sr=44100)
-    melspectrogram = librosa.feature.melspectrogram(y=y, sr=sr, n_mels=128)
-    cmvn = (melspectrogram - np.mean(melspectrogram, axis=1, keepdims=True)) / (np.std(melspectrogram, axis=1, keepdims=True) + 1e-6)
+    mfcc = librosa.feature.mfcc(y=y,sr=sr,n_mfcc=20)
+    cmvn = (mfcc - np.mean(mfcc, axis=1, keepdims=True)) / (np.std(mfcc, axis=1, keepdims=True) + 1e-6)
     return cmvn.T
 
 def create_transformer_model(input_shape, vocab_size):
