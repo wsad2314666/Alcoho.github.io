@@ -91,8 +91,9 @@ def process_test_audio(audio_path, model_path='LSTM_model.keras'):
 
 def main():
     #音訊轉MFCC特徵
-    input_dir = r"D:\wsad231466\Alcoho.github.io\flask-templete\train"
-    output_dir = r"D:\wsad231466\Alcoho.github.io\flask-templete\mfcc_arrays"
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    input_dir = os.path.join(current_dir, 'train')
+    output_dir = os.path.join(current_dir, 'LSTM_mfcc_arrays')
     
     process_audio_files(input_dir, output_dir)
 
@@ -104,7 +105,7 @@ def main():
         logging.error(f"An error occurred during training: {str(e)}")
         return
 
-    test_audio_path = r"D:\wsad231466\Alcoho.github.io\flask-templete\static\audio\user_input.wav"
+    test_audio_path = os.path.join('static','audio','user_input.wav')
     model_path = 'LSTM_model.keras'
 
     try:

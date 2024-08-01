@@ -7,7 +7,6 @@ from tensorflow.keras.preprocessing.image import ImageDataGenerator, img_to_arra
 from tensorflow.keras.models import Sequential, Model, load_model
 from tensorflow.keras.layers import Conv2D, MaxPooling2D, Flatten, Dense, Dropout, GlobalAveragePooling2D
 from tensorflow.keras.optimizers import Adam
-from tensorflow.keras.applications import ResNet50
 import logging
 
 logging.basicConfig(level=logging.INFO)
@@ -38,7 +37,7 @@ def process_audio_files(input_dir, output_dir):
             save_mfcc_image(mfcc, output_path)
             logging.info(f"Processed {audio_file} to {output_path}")
     
-def create_model():
+def create_model(model_path='cnn.keras'):
     model = Sequential()
     model.add(Conv2D(32, (3, 3), activation='relu', input_shape=(128, 128, 3)))
     model.add(MaxPooling2D((2, 2)))
@@ -52,6 +51,8 @@ def create_model():
     model.add(Dense(1, activation='sigmoid'))
     
     model.compile(optimizer=Adam(learning_rate=0.0001), loss='binary_crossentropy', metrics=['accuracy'])
+    model.save(model_path)
+    logging.info(f"Model saved to {model_path}")
     return model
 
 def train_model(train_dir, model_path='cnn.keras', epochs=None, batch_size=None):
@@ -83,7 +84,7 @@ def train_model(train_dir, model_path='cnn.keras', epochs=None, batch_size=None)
         subset='validation'
     )
 
-    model = create_model()
+    model = create_model(model_path)
     
     history = model.fit(
         train_generator,
@@ -93,11 +94,10 @@ def train_model(train_dir, model_path='cnn.keras', epochs=None, batch_size=None)
         validation_steps=validation_generator.samples // batch_size,
         callbacks=[
             tf.keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.2, patience=5, min_lr=0.00001),
-            tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=10, restore_best_weights=True)
+            tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=10, restore_best_weights=True),
+            tf.keras.callbacks.ModelCheckpoint(model_path, save_best_only=True,monitor='val_loss')
         ]
     )
-
-    model.save(model_path)
     logging.info(f"Model saved to {model_path}")
     return history
 
@@ -122,8 +122,9 @@ def process_test_audio(audio_path, model_path='cnn.keras'):
 
 def main():
     #音訊轉MFCC圖片
-    input_dir = r"C:\Users\USER\Desktop\flask-templete\train"
-    output_dir = r"C:\Users\USER\Desktop\flask-templete\cnn_mfcc_images"
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    input_dir = os.path.join(current_dir, 'train')
+    output_dir = os.path.join(current_dir, 'cnn_mfcc_images')
     
     process_audio_files(input_dir, output_dir)
 
@@ -148,15 +149,20 @@ def main():
         if not os.path.exists(dst):
             os.rename(src, dst)
 
+
+    test_audio_path = os.path.join(current_dir,'static','audio','user_input.wav')
+    model_path = os.path.join(current_dir,'cnn.keras')
+
     try:
-        history = train_model(mfcc_images_dir, epochs=2, batch_size=262144)
+        history = train_model(mfcc_images_dir,model_path=model_path,epochs=2, batch_size=262144)
         logging.info("Training completed successfully")
+        if os.path.exists(model_path):
+            logging.info(f"模型文件已成功创建: {model_path}")
+        else:
+            logging.error(f"模型文件未能创建: {model_path}")
     except Exception as e:
         logging.error(f"An error occurred during training: {str(e)}")
         return
-
-    test_audio_path = r"C:\Users\USER\Desktop\flask-templete\static\audio\user_input.wav"
-    model_path = 'cnn.keras'
 
     try:
         result = process_test_audio(test_audio_path, model_path)

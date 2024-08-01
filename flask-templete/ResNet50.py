@@ -11,6 +11,7 @@ from tensorflow.keras.applications import ResNet50
 import logging
 
 logging.basicConfig(level=logging.INFO)
+current_dir = os.path.dirname(os.path.abspath(__file__))
 
 def audio_to_mfcc(audio_path, sr=44100):
     y, sr = librosa.load(audio_path, sr=sr)
@@ -121,14 +122,14 @@ def process_test_audio(audio_path, model_path='ResNet50.keras'):
 
 def main():
     #音訊轉MFCC圖片
-    input_dir = r"C:\Users\USER\Desktop\flask-templete\train"
-    output_dir = r"C:\Users\USER\Desktop\flask-templete\mfcc_images"
+    input_dir = os.path.join(current_dir, 'train')
+    output_dir = os.path.join(current_dir, 'Resnet_mfcc_arrays')
     
     process_audio_files(input_dir, output_dir)
 
     # 訓練階段
 
-    mfcc_images_dir = r"C:\Users\USER\Desktop\flask-templete\mfcc_images"
+    mfcc_images_dir = os.path.join(current_dir,'Resnet_mfcc_images')
     
     if not os.path.exists(mfcc_images_dir):
         logging.error(f"Directory not found: {mfcc_images_dir}")
@@ -154,7 +155,7 @@ def main():
         logging.error(f"An error occurred during training: {str(e)}")
         return
 
-    test_audio_path = r"C:\Users\USER\Desktop\flask-templete\static\audio\user_input.wav"
+    test_audio_path = os.path.join('static','audio','user_input.wav')
     model_path = 'ResNet50.keras'
 
     try:

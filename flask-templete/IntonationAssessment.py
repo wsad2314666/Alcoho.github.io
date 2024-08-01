@@ -1,3 +1,4 @@
+import os
 import librosa
 import numpy as np
 from fastdtw import fastdtw
@@ -114,9 +115,10 @@ def calculate_similarity(standard_pitch, test_pitch):
     
     return min(100, score)  # Ensure the score does not exceed 100
 # Example usage 
-standard_pitch = extract_pitch('C:\\Users\\USER\\Desktop\\flask-templete\\static\\audio\\A.wav')  # Path to the standard audio file
-test_pitch_good = extract_pitch('C:\\Users\\USER\\Desktop\\flask-templete\\train\\A5.wav')  # Path to the good test audio file
-test_pitch_bad = extract_pitch('C:\\Users\\USER\\Desktop\\flask-templete\\static\\audio\\user_input.wav')  # Path to the bad test audio file
+current_dir = os.path.dirname(os.path.abspath(__file__))
+standard_pitch = extract_pitch(os.path.join(current_dir, 'static', 'audio', 'A.wav'))
+test_pitch_good = extract_pitch(os.path.join(current_dir, 'train', 'A5.wav'))
+test_pitch_bad = extract_pitch(os.path.join(current_dir, 'static', 'audio', 'user_input.wav'))
 
 score_good = calculate_similarity(standard_pitch, test_pitch_good)
 score_bad = calculate_similarity(standard_pitch, test_pitch_bad)

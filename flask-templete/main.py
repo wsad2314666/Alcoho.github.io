@@ -20,6 +20,7 @@ from scipy.optimize import minimize
 from sympy import symbols, Eq, solve
 app = Flask(__name__)
 
+current_dir = os.path.dirname(os.path.abspath(__file__))
 # 載入音檔
 def load_audio(file_path):
     audio, sr = librosa.load(file_path, sr=44100)#波型資料，採樣率
@@ -350,13 +351,13 @@ def index():
 def receive_speech_file():
     global selected_file,audio_file_path_A
     selected_file = request.json.get('speechFile')
-    audio_file_path_A = os.path.join('C:\\Users\\USER\\Desktop\\flask-templete\\static\\audio\\', selected_file)
+    audio_file_path_A = os.path.join(current_dir,'static','audio', selected_file)
     return jsonify({'message': 'Received speechFile successfully'})
 
 @app.route('/record_audio', methods=['POST'])
 def record_audio():
     global audio_file_path_B
-    audio_file_path_B = 'C:\\Users\\USER\\Desktop\\flask-templete\\static\\audio\\user_input.wav'
+    audio_file_path_B = os.path.join(current_dir,'static','audio','user_input.wav')
     record_audio_to_file(audio_file_path_B, duration=3, channels=1, rate=44100, frames_per_buffer=1)
     return jsonify({'message': 'Audio recorded successfully'})
 
@@ -402,10 +403,10 @@ def process_audio():
 #     app.run(debug=True)
 
 if __name__ == '__main__':
-    audio_file_path_A = os.path.join('C:\\Users\\USER\\Desktop\\flask-templete\\static\\audio\\F.wav')
+    audio_file_path_A = os.path.join(current_dir,'static','audio','F.wav')
     audio_A, sr_A = load_audio(audio_file_path_A)
     #print(audio_A)
-    audio_file_path_B=os.path.join('C:\\Users\\USER\\Desktop\\flask-templete\\static\\audio\\A.wav')
+    audio_file_path_B=os.path.join(current_dir,'static','audio','A.wav')
     # record_audio_to_file('D:\\系統檔 Documents\\GitHub\\Alcoho.github.io\\flask-templete\\static\\audio\\user_input.wav',duration=3, channels=1, rate=44100, frames_per_buffer=1)
     audio_B, sr_B = load_audio(audio_file_path_B)
     print(audio_B)
